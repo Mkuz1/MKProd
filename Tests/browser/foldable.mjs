@@ -30,7 +30,7 @@ await page.fill('input[placeholder="New workspace name"]', 'Procurement');
 await page.click('button.btn.primary:has-text("Create")');
 await page.waitForSelector('.side'); await page.waitForTimeout(2500);
 await page.goto(BASE + '/#/everything'); await page.waitForTimeout(600);
-await page.fill('input[placeholder="+ Add a task and press Enter"]', 'Review cleaning tender');
+await page.fill('.quick-add input', 'Review cleaning tender');
 await page.keyboard.press('Enter');
 await page.waitForTimeout(3500);   // synced
 await ctx.close();

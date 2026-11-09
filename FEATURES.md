@@ -7,7 +7,11 @@ Everything below is available in the Mac app and on the website, and therefore i
 - **Hierarchy:** Workspace → Spaces → Folders → Lists; favorites, archive, templates.
 - **Tasks:** custom statuses per Space, priorities, multiple assignees, watchers, tags, start/due dates, estimates, points, milestones, recurrence, subtasks, checklists, dependencies, linked tasks, attachments (encrypted files or links), comments with @mentions, activity log.
 - **Custom fields:** text, number, money, dropdown, checkbox, date, URL, email, rating, people, phone, location, automatic progress (subtasks + checklists) and **formulas** (`{Unit cost} * {Quantity}`, `IF({Days left} < 0, "Late", "OK")`, ROUND/MIN/MAX/SUM/AVG/ABS/TODAY). Edited per Space; shown as Table columns with sums and in the task panel.
-- **Views:** List, Board, Calendar, Gantt, Table, Chart, Workload, Mind Map, Form.
+- **Views:** List, Board, Calendar, Gantt, Table, Chart, Workload, Team, Activity, Mind Map, Form; group by status, priority, assignee, task type, list or due date; sort; filters (assignee, priority, tag, type, overdue, closed); CSV export of the tasks in view.
+- **Saved views:** a views bar on every location; save the view type, grouping, sorting and filters as a named view, shared or private (encrypted with your own key), with one that opens first.
+- **Task types and task IDs** per Space (e.g. 🐞 Bug, `OPS-42`; ⌘K finds a task by its ID); **tasks in multiple lists**; **time in status**; **work-in-progress limits** per status on Board and List; **required and pinned fields**; **column calculations** (sum, average, min, max, count).
+- **Close warnings** when a task still has open subtasks, checklist items, empty required fields or open blockers; optional **rescheduling of dependent tasks and subtasks** when a due date moves.
+- **Comments** with threaded replies and emoji reactions.
 - **Chart view:** bar, donut or line chart of the tasks in view, grouped by status, priority, assignee, tag, list, due month or a custom field, measuring task count, estimated hours, points, tracked hours or the sum of a number/money/formula field.
 - **Gantt:** dependency arrows, **critical path** (the longest chain of dependent tasks, highlighted), and **baselines**: save the planned dates, then see slips as the gap between each bar and its grey baseline line.
 - **Portfolio:** every list as a project with progress against its schedule, health (on track / at risk / off track / done), owners, open and overdue counts and a timeline, filterable by space and health.

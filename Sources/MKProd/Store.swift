@@ -197,13 +197,13 @@ final class Store {
     func tasks(for item: SidebarItem, includeSubtasks: Bool = false) -> [TaskItem] {
         let base = data.tasks.filter { !$0.archived && (includeSubtasks || $0.parentId == nil) }
         switch item {
-        case .list(let id): return base.filter { $0.listId == id }
+        case .list(let id): return base.filter { inLists($0, [id]) }
         case .folder(let id):
             let ids = Set(data.lists.filter { $0.folderId == id }.map(\.id))
-            return base.filter { ids.contains($0.listId) }
+            return base.filter { inLists($0, ids) }
         case .space(let id):
             let ids = Set(data.lists.filter { $0.spaceId == id }.map(\.id))
-            return base.filter { ids.contains($0.listId) }
+            return base.filter { inLists($0, ids) }
         case .myTasks: return base.filter { $0.assigneeIds.contains(data.currentUserId) }
         default: return base
         }
@@ -350,9 +350,20 @@ final class Store {
         var t = data.tasks[i]
         let before = t
         change(&t)
+        // Closing a task with open work asks first (not when an automation does it).
+        if automationDepth == 0, !isClosed(before), isClosed(t), !confirmClose(t) { return }
+        if t.statusId != before.statusId {
+            if t.statusLog?.isEmpty ?? true { t.statusLog = [StatusChange(statusId: before.statusId, at: before.created)] }
+            t.statusLog?.append(StatusChange(statusId: t.statusId, at: Date()))
+        }
         t.updated = Date()
         data.tasks[i] = t
         afterChange(before: before, after: t)
+        // Dependent tasks and subtasks follow a moved due date, if the space says so.
+        if let b = before.dueDate, let a = t.dueDate {
+            let days = Calendar.current.dateComponents([.day], from: b.startOfDay, to: a.startOfDay).day ?? 0
+            if days != 0, let now = task(id) { cascadeDates(from: now, days: days) }
+        }
     }
 
     private func afterChange(before: TaskItem, after t: TaskItem) {
@@ -419,6 +430,8 @@ final class Store {
         n.created = Date()
         n.checklists = t.checklists.map { var c = $0; c.items = c.items.map { var i = $0; i.done = false; return i }; return c }
         n.activity = [ActivityItem(text: "Created from recurring task")]
+        n.statusLog = nil
+        n.number = nil
         data.tasks.append(n)
     }
 
@@ -494,6 +507,8 @@ final class Store {
         t.title += " (copy)"
         t.created = Date()
         t.activity = [ActivityItem(text: "Duplicated")]
+        t.number = nil
+        t.statusLog = nil
         t.order += 0.5
         data.tasks.append(t)
     }
@@ -531,9 +546,13 @@ final class Store {
         t.created = Date()
         t.comments = []
         t.activity = [ActivityItem(text: "Created from template \"\(tpl.name)\"")]
+        t.number = nil
+        t.statusLog = nil
         data.tasks.append(t)
         for var s in tpl.subtasks {
             s.id = UUID()
+            s.number = nil
+            s.statusLog = nil
             s.parentId = t.id
             s.listId = listId
             s.statusId = t.statusId
@@ -584,7 +603,7 @@ final class Store {
 
     // MARK: - Automations
 
-    private var automationDepth = 0
+    private(set) var automationDepth = 0
 
     func runAutomations(_ trigger: TriggerType, task id: UUID, value: String) {
         // Guard against rules that keep triggering each other.

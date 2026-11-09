@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
-import { ID, Task, addDays, fmtDate, fromInputDate, iso, newTask, startOfDay, toInputDate, uid, PRIORITIES } from '../model';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ID, SavedView, Space, Task, addDays, fmtDate, fromInputDate, iso, newTask, startOfDay, toInputDate, uid, PRIORITIES } from '../model';
 import { Avatar, Avatars, Empty, Flag, Markdown, PrioritySelect, Seg, StatusPill, Tag, isClosed, member, statusOf, useApp } from '../ui';
 import type { SyncEngine } from '../sync';
 import { Attachments } from './Procurement';
 import { ChartView, FieldsEditor, TaskFields } from './Advanced';
 import { criticalPath, fieldDisplay, isComputedField } from '../features';
+import { ActivityView, CommentsSection, KeyChip, ListsRow, SpaceSettings, TeamView, TimeInStatus, TypeBadge, TypeSelect, ViewState, ViewsBar } from './Work';
+import { DEFAULT_FILTER, assignTaskNumbers, cascadeDates, confirmStatusChange, dayDelta, defaultView, download, inLists, logStatusChange, taskKey, taskTypeOf, toCSV } from '../work';
 
 // ---------------------------------------------------------------- task helpers (mirror Store.swift)
 
@@ -21,6 +23,7 @@ export function updateTask(engine: SyncEngine, id: ID, fn: (t: Task) => void) {
     const log = (text: string) => t.activity.push({ id: uid(), date: iso(), text });
     if (t.statusId !== before.statusId) {
       const st = statusesFor(engine, t).find((s) => s.id === t.statusId);
+      logStatusChange(t, before);
       log(`${me} changed status to ${st?.name ?? '?'}`);
       const closed = st?.kind === 'done' || st?.kind === 'closed';
       if (closed) t.completedAt = iso(); else delete t.completedAt;
@@ -31,6 +34,9 @@ export function updateTask(engine: SyncEngine, id: ID, fn: (t: Task) => void) {
     if (t.dueDate !== before.dueDate) log(t.dueDate ? `${me} set due date to ${new Date(t.dueDate).toLocaleDateString()}` : `${me} removed the due date`);
     if (t.listId !== before.listId) log(`${me} moved this task to ${engine.get('lists', t.listId)?.name ?? '?'}`);
   });
+  // Dependent tasks and subtasks follow a moved due date (start date when there is no due date), if the space says so.
+  const after = engine.get('tasks', id);
+  if (after) cascadeDates(engine, after, dayDelta(before.dueDate, after.dueDate) || (!before.dueDate && !after.dueDate ? dayDelta(before.startDate, after.startDate) : 0), me);
 }
 
 function spawnRecurrence(engine: SyncEngine, t: Task) {
@@ -53,6 +59,7 @@ function spawnRecurrence(engine: SyncEngine, t: Task) {
   n.created = iso();
   n.checklists = t.checklists.map((c) => ({ ...c, items: c.items.map((i) => ({ ...i, done: false })) }));
   n.activity = [{ id: uid(), date: iso(), text: 'Created from recurring task' }];
+  delete n.statusLog; delete n.number;
   if (!n.dueDate) delete n.dueDate;
   if (!n.startDate) delete n.startDate;
   engine.put('tasks', n);
@@ -61,7 +68,7 @@ function spawnRecurrence(engine: SyncEngine, t: Task) {
 export function toggleDone(engine: SyncEngine, t: Task) {
   const st = statusesFor(engine, t);
   const target = isClosed(engine, t) ? st[0] : st.find((s) => s.kind === 'done');
-  if (target) updateTask(engine, t.id, (x) => { x.statusId = target.id; });
+  if (target && confirmStatusChange(engine, t, target.id)) updateTask(engine, t.id, (x) => { x.statusId = target.id; });
 }
 
 /** Removes a list with every task in it (mirrors Store.deleteList on the Mac). */
@@ -222,17 +229,71 @@ export function InboxPage() {
 
 // ---------------------------------------------------------------- task container
 
-type View = 'list' | 'board' | 'calendar' | 'table' | 'gantt' | 'chart' | 'workload' | 'mindmap' | 'form';
+type View = 'list' | 'board' | 'calendar' | 'table' | 'gantt' | 'chart' | 'workload' | 'activity' | 'team' | 'mindmap' | 'form';
 type Scope = { kind: 'everything' } | { kind: 'mine' } | { kind: 'space' | 'folder' | 'list'; id: ID };
+type GroupBy = 'status' | 'priority' | 'assignee' | 'type' | 'list' | 'due' | 'none';
+type SortBy = 'manual' | 'due' | 'priority' | 'title' | 'created' | 'updated';
+
+const VIEW_OPTIONS: { value: View; icon: string; label: string }[] = [
+  { value: 'list', icon: '☰', label: 'List' }, { value: 'board', icon: '▦', label: 'Board' }, { value: 'calendar', icon: '📅', label: 'Calendar' },
+  { value: 'table', icon: '▤', label: 'Table' }, { value: 'gantt', icon: '▬', label: 'Gantt' }, { value: 'chart', icon: '📊', label: 'Chart' },
+  { value: 'workload', icon: '⚖️', label: 'Workload' }, { value: 'team', icon: '👥', label: 'Team' }, { value: 'activity', icon: '🕘', label: 'Activity' },
+  { value: 'mindmap', icon: '🧠', label: 'Mind Map' }, { value: 'form', icon: '📋', label: 'Form' },
+];
+const GROUPS: { value: GroupBy; label: string }[] = [
+  { value: 'status', label: 'Status' }, { value: 'priority', label: 'Priority' }, { value: 'assignee', label: 'Assignee' }, { value: 'type', label: 'Task type' },
+  { value: 'list', label: 'List' }, { value: 'due', label: 'Due date' }, { value: 'none', label: 'None' },
+];
+const SORTS: { value: SortBy; label: string }[] = [
+  { value: 'manual', label: 'Manual' }, { value: 'due', label: 'Due date' }, { value: 'priority', label: 'Priority' }, { value: 'title', label: 'Name' },
+  { value: 'created', label: 'Date created' }, { value: 'updated', label: 'Last updated' },
+];
+
+const scopeKey = (scope: Scope) => (scope.kind === 'everything' || scope.kind === 'mine' ? scope.kind : `${scope.kind}:${scope.id}`);
 
 export function TasksPage({ scope }: { scope: Scope }) {
-  const { engine, openTask } = useApp();
-  const [view, setView] = useState<View>(() => (localStorage.getItem('view') as View) || 'list');
-  const [search, setSearch] = useState('');
-  const [assignee, setAssignee] = useState('');
-  const [showClosed, setShowClosed] = useState(true);
+  const { engine, openTask, toast } = useApp();
+  const key = scopeKey(scope);
+  const initial = (): ViewState => {
+    const d = defaultView(engine, key);
+    if (d) return { mode: d.mode, groupBy: d.groupBy, sortBy: d.sortBy, filter: { ...DEFAULT_FILTER, ...d.filter } };
+    return { mode: localStorage.getItem('view') || 'list', groupBy: 'status', sortBy: 'manual', filter: { ...DEFAULT_FILTER } };
+  };
+  const [state, setState] = useState<ViewState>(initial);
+  const [activeView, setActiveView] = useState<ID | undefined>(() => defaultView(engine, key)?.id);
   const [quick, setQuick] = useState('');
-  const setV = (v: View) => { setView(v); localStorage.setItem('view', v); };
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const quickRef = useRef<HTMLInputElement>(null);
+  const touched = useRef(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const view = state.mode as View;
+  const f = state.filter;
+  const setF = (patch: Partial<ViewState['filter']>) => { touched.current = true; setState((s) => ({ ...s, filter: { ...s.filter, ...patch } })); };
+  const setV = (v: View) => { touched.current = true; setState((s) => ({ ...s, mode: v })); try { localStorage.setItem('view', v); } catch { /* private mode */ } };
+  const apply = (v: SavedView) => { touched.current = true; setActiveView(v.id); setState({ mode: v.mode, groupBy: v.groupBy, sortBy: v.sortBy, filter: { ...DEFAULT_FILTER, ...v.filter } }); };
+  // The page can open before saved views have loaded (cache, first sync): apply the default once it
+  // shows up, unless the person already picked something here.
+  const dv = defaultView(engine, key);
+  useEffect(() => {
+    if (touched.current || activeView || !dv) return;
+    setActiveView(dv.id);
+    setState({ mode: dv.mode, groupBy: dv.groupBy, sortBy: dv.sortBy, filter: { ...DEFAULT_FILTER, ...dv.filter } });
+  }, [dv?.id]);
+
+  // Tasks created anywhere get their number once their space uses task IDs.
+  useEffect(() => { assignTaskNumbers(engine); }, [engine.version]);
+  // n: new task, /: filter. Ignored while typing.
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable) return;
+      if (e.key === 'n') { e.preventDefault(); quickRef.current?.focus(); }
+      if (e.key === '/') { e.preventDefault(); searchRef.current?.focus(); }
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
 
   const listIds = useMemo(() => {
     const lists = engine.list('lists').filter((l) => !l.archived);
@@ -241,14 +302,23 @@ export function TasksPage({ scope }: { scope: Scope }) {
     if (scope.kind === 'space') return lists.filter((l) => l.spaceId === scope.id).map((l) => l.id);
     return lists.map((l) => l.id);
   }, [engine.version, scope]);
+  const listSet = new Set(listIds);
 
   // "My Tasks" includes subtasks assigned to you; the other views show top-level tasks (subtasks live inside their parent).
-  let tasks = engine.list('tasks').filter((t) => !t.archived && (scope.kind === 'mine' || !t.parentId) && listIds.includes(t.listId));
-  if (scope.kind === 'mine') tasks = tasks.filter((t) => t.assigneeIds.includes(engine.me));
-  if (search) tasks = tasks.filter((t) => (t.title + ' ' + t.tags.join(' ')).toLowerCase().includes(search.toLowerCase()));
-  if (assignee) tasks = tasks.filter((t) => t.assigneeIds.includes(assignee));
-  if (!showClosed) tasks = tasks.filter((t) => !isClosed(engine, t));
-  tasks.sort((a, b) => a.order - b.order);
+  const scoped = engine.list('tasks').filter((t) => !t.archived && (scope.kind === 'mine' || !t.parentId) && inLists(t, listSet));
+  let tasks = scope.kind === 'mine' ? scoped.filter((t) => t.assigneeIds.includes(engine.me)) : scoped;
+  const q = f.search.trim().toLowerCase();
+  if (q) tasks = tasks.filter((t) => `${t.title} ${t.tags.join(' ')} ${taskKey(engine, t) ?? ''}`.toLowerCase().includes(q));
+  if (f.assigneeId) tasks = tasks.filter((t) => t.assigneeIds.includes(f.assigneeId!));
+  if (f.priority !== undefined) tasks = tasks.filter((t) => t.priority === f.priority);
+  if (f.tag) tasks = tasks.filter((t) => t.tags.includes(f.tag!));
+  if (f.typeId) {
+    const name = engine.list('spaces').flatMap((s) => s.taskTypes ?? []).find((x) => x.id === f.typeId)?.name;
+    tasks = tasks.filter((t) => f.typeId === 'task' ? !taskTypeOf(engine, t) : taskTypeOf(engine, t)?.name === name);
+  }
+  if (!f.showClosed) tasks = tasks.filter((t) => !isClosed(engine, t));
+  if (f.onlyOverdue) tasks = tasks.filter((t) => isOverdue(engine, t));
+  tasks = sortTasks(engine, tasks, state.sortBy as SortBy);
 
   const defaultList = listIds[0];
   const addQuick = () => {
@@ -259,35 +329,73 @@ export function TasksPage({ scope }: { scope: Scope }) {
     if (!st) return;
     const t = newTask(defaultList, title, st.id, member(engine, engine.me));
     if (scope.kind === 'mine') t.assigneeIds = [engine.me];
+    if (f.assigneeId) t.assigneeIds = [f.assigneeId];
     engine.put('tasks', t);
     setQuick('');
   };
 
-  // Group by status name so multi-space views still line up.
-  const spaces = scope.kind === 'list' || scope.kind === 'folder' || scope.kind === 'space'
-    ? [engine.get('spaces', engine.get('lists', listIds[0])?.spaceId ?? (scope.kind === 'space' ? scope.id : ''))].filter(Boolean)
-    : engine.list('spaces');
-  const statusNames: { name: string; color: string; ids: ID[] }[] = [];
-  for (const s of spaces.flatMap((x) => x!.statuses)) {
-    const g = statusNames.find((x) => x.name === s.name);
-    if (g) g.ids.push(s.id); else statusNames.push({ name: s.name, color: s.colorHex, ids: [s.id] });
-  }
-  const groups = statusNames.map((g) => ({ ...g, tasks: tasks.filter((t) => g.ids.includes(t.statusId)) }))
-    .filter((g) => g.tasks.length || spaces.length === 1);
+  const spaces = (scope.kind === 'list' || scope.kind === 'folder' || scope.kind === 'space'
+    ? [engine.get('spaces', engine.get('lists', listIds[0])?.spaceId ?? (scope.kind === 'space' ? scope.id : ''))]
+    : engine.list('spaces')).filter((x): x is Space => !!x);
+  const oneSpace = spaces.length === 1 ? spaces[0] : undefined;
+  const groups = buildGroups(engine, tasks, state.groupBy as GroupBy, spaces);
+  const types = [...new Map(spaces.flatMap((s) => s.taskTypes ?? []).map((x) => [x.name, x])).values()];
+  const tags = [...new Set(scoped.flatMap((t) => t.tags))].sort();
+  const activeFilters = [f.assigneeId, f.priority !== undefined, f.tag, f.typeId, !f.showClosed, f.onlyOverdue].filter(Boolean).length;
+  const grouped = view === 'list' || view === 'board';
+
+  const exportCSV = () => {
+    const fields = [...new Map(tasks.flatMap((t) => engine.get('spaces', engine.get('lists', t.listId)?.spaceId)?.fields ?? []).map((x) => [x.name, x])).values()];
+    const rows = [
+      ['ID', 'Name', 'Type', 'Status', 'Priority', 'Assignees', 'Start', 'Due', 'Estimate (h)', 'Tags', 'List', ...fields.map((x) => x.name)],
+      ...tasks.map((t) => {
+        const own = engine.get('spaces', engine.get('lists', t.listId)?.spaceId)?.fields ?? [];
+        return [taskKey(engine, t) ?? '', t.title, taskTypeOf(engine, t)?.name ?? 'Task', statusOf(engine, t)?.name ?? '', PRIORITIES.find((p) => p.value === t.priority)?.label ?? '',
+          t.assigneeIds.map((a) => member(engine, a)?.name ?? '').join('; '), t.startDate?.slice(0, 10) ?? '', t.dueDate?.slice(0, 10) ?? '',
+          t.estimateMinutes ? Math.round(t.estimateMinutes / 6) / 10 : '', t.tags.join('; '), engine.get('lists', t.listId)?.name ?? '',
+          ...fields.map((x) => { const mine = own.find((o) => o.name === x.name); return mine ? fieldDisplay(engine, t, mine) : ''; })];
+      }),
+    ];
+    download(`${scopeTitle(engine, scope).replace(/[^\w -]+/g, '')}-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(rows));
+    toast(`Exported ${tasks.length} task${tasks.length === 1 ? '' : 's'}`);
+  };
 
   return (
-    <div>
-      <div className="toolbar">
-        <Seg value={view} onChange={setV} options={[{ value: 'list', label: '☰ List' }, { value: 'board', label: '▦ Board' }, { value: 'calendar', label: '📅 Calendar' }, { value: 'table', label: '▤ Table' }, { value: 'gantt', label: '▬ Gantt' }, { value: 'chart', label: '📊 Chart' }, { value: 'workload', label: '👥 Workload' }, { value: 'mindmap', label: '🧠 Mind Map' }, { value: 'form', label: '📋 Form' }]} />
-        <input className="input" placeholder="+ Add a task and press Enter" value={quick} onChange={(e) => setQuick(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addQuick()} style={{ width: 260 }} disabled={!defaultList} />
+    <div className="tasks-page">
+      <ViewsBar scope={key} active={activeView} current={state} onApply={apply} onClear={() => { setActiveView(undefined); setState({ mode: view, groupBy: 'status', sortBy: 'manual', filter: { ...DEFAULT_FILTER } }); }} />
+      <div className="toolbar glass-bar">
+        <div className="view-switch" role="tablist">
+          {VIEW_OPTIONS.map((o) => <button key={o.value} role="tab" aria-selected={view === o.value} className={view === o.value ? 'on' : ''} onClick={() => setV(o.value)} title={o.label}><span>{o.icon}</span><span className="lbl">{o.label}</span></button>)}
+        </div>
         <span className="right" />
-        <input className="input" placeholder="Filter" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 140 }} />
-        <select className="input" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-          <option value="">Anyone</option>
-          {engine.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-        <label className="row small"><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Show closed</label>
+        <div className="search-box"><span>🔍</span><input ref={searchRef} className="plain" placeholder="Search tasks or IDs  /" value={f.search} onChange={(e) => setF({ search: e.target.value })} />{f.search && <button className="btn ghost sm" onClick={() => setF({ search: '' })}>✕</button>}</div>
+        <button className={`btn ${f.assigneeId === engine.me ? 'on' : ''}`} title="Only my tasks" onClick={() => setF({ assigneeId: f.assigneeId === engine.me ? undefined : engine.me })}>👤 Me</button>
+        <div className="pop-wrap">
+          <button className={`btn ${activeFilters ? 'on' : ''}`} onClick={() => setFiltersOpen(!filtersOpen)}>⚲ Filter{activeFilters ? ` · ${activeFilters}` : ''}</button>
+          {filtersOpen && (
+            <div className="menu pop" onClick={(e) => e.stopPropagation()}>
+              <label className="field">Assignee<select className="input" value={f.assigneeId ?? ''} onChange={(e) => setF({ assigneeId: e.target.value || undefined })}><option value="">Anyone</option>{engine.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+              <label className="field">Priority<select className="input" value={f.priority ?? ''} onChange={(e) => setF({ priority: e.target.value === '' ? undefined : Number(e.target.value) })}><option value="">Any</option>{PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</select></label>
+              {tags.length > 0 && <label className="field">Tag<select className="input" value={f.tag ?? ''} onChange={(e) => setF({ tag: e.target.value || undefined })}><option value="">Any</option>{tags.map((t) => <option key={t}>{t}</option>)}</select></label>}
+              {types.length > 0 && <label className="field">Task type<select className="input" value={f.typeId ?? ''} onChange={(e) => setF({ typeId: e.target.value || undefined })}><option value="">Any</option><option value="task">✓ Task</option>{types.map((t) => <option key={t.id} value={t.id}>{t.icon} {t.name}</option>)}</select></label>}
+              <label className="row"><input type="checkbox" checked={f.showClosed} onChange={(e) => setF({ showClosed: e.target.checked })} /> Show closed tasks</label>
+              <label className="row"><input type="checkbox" checked={f.onlyOverdue} onChange={(e) => setF({ onlyOverdue: e.target.checked })} /> Only overdue</label>
+              <div className="row"><button className="btn sm" onClick={() => setState((s) => ({ ...s, filter: { ...DEFAULT_FILTER, search: s.filter.search } }))}>Clear filters</button><span className="right" /><button className="btn sm primary" onClick={() => setFiltersOpen(false)}>Done</button></div>
+            </div>
+          )}
+        </div>
+        {grouped && <label className="btn select-btn" title="Group by">▤ <select className="plain" value={state.groupBy} onChange={(e) => setState((s) => ({ ...s, groupBy: e.target.value }))}>{GROUPS.map((g) => <option key={g.value} value={g.value}>Group: {g.label}</option>)}</select></label>}
+        <label className="btn select-btn" title="Sort">⇅ <select className="plain" value={state.sortBy} onChange={(e) => setState((s) => ({ ...s, sortBy: e.target.value }))}>{SORTS.map((g) => <option key={g.value} value={g.value}>Sort: {g.label}</option>)}</select></label>
+        <button className="btn" title="Export these tasks as CSV (opens in Excel)" onClick={exportCSV} disabled={!tasks.length}>⤓ CSV</button>
+        {oneSpace && engine.canWrite && <button className="btn" title="Space settings: statuses, task types, IDs, scheduling, fields" onClick={() => setSettings(true)}>⚙</button>}
       </div>
+      {defaultList && view !== 'form' && view !== 'activity' && (
+        <div className="quick-add">
+          <span>＋</span>
+          <input ref={quickRef} className="plain grow" placeholder={`Add a task to ${engine.get('lists', defaultList)?.name ?? 'this list'} and press Enter  ·  n`} value={quick} onChange={(e) => setQuick(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addQuick()} />
+          <span className="small faint">{tasks.length} task{tasks.length === 1 ? '' : 's'}</span>
+        </div>
+      )}
       {!defaultList && <Empty icon="📋" title="No lists yet" sub="Create a space and a list from the sidebar." />}
       {defaultList && view === 'list' && <ListView groups={groups} onOpen={openTask} />}
       {defaultList && view === 'board' && <BoardView groups={groups} onOpen={openTask} />}
@@ -296,13 +404,80 @@ export function TasksPage({ scope }: { scope: Scope }) {
       {defaultList && view === 'gantt' && <GanttView tasks={tasks} onOpen={openTask} />}
       {defaultList && view === 'chart' && <ChartView tasks={tasks} onOpen={openTask} />}
       {defaultList && view === 'workload' && <WorkloadView tasks={tasks} onOpen={openTask} />}
+      {defaultList && view === 'team' && <TeamView tasks={tasks} onOpen={openTask} />}
+      {defaultList && view === 'activity' && <ActivityView tasks={tasks} onOpen={openTask} />}
       {defaultList && view === 'mindmap' && <MindMapView title={scopeTitle(engine, scope)} tasks={tasks} onOpen={openTask} />}
       {defaultList && view === 'form' && <FormView defaultList={defaultList} lists={listIds} />}
+      {settings && oneSpace && <SpaceSettings spaceId={oneSpace.id} onClose={() => setSettings(false)} />}
+      {filtersOpen && <div className="click-away" onClick={() => setFiltersOpen(false)} />}
     </div>
   );
 }
 
-type Group = { name: string; color: string; ids: ID[]; tasks: Task[] };
+function sortTasks(engine: SyncEngine, ts: Task[], by: SortBy): Task[] {
+  const out = [...ts];
+  if (by === 'manual') out.sort((a, b) => a.order - b.order);
+  if (by === 'due') out.sort((a, b) => (a.dueDate ?? '9').localeCompare(b.dueDate ?? '9'));
+  if (by === 'priority') out.sort((a, b) => b.priority - a.priority || a.order - b.order);
+  if (by === 'title') out.sort((a, b) => a.title.localeCompare(b.title));
+  if (by === 'created') out.sort((a, b) => b.created.localeCompare(a.created));
+  if (by === 'updated') out.sort((a, b) => b.updated.localeCompare(a.updated));
+  void engine;
+  return out;
+}
+
+type Group = { key: string; name: string; color: string; ids: ID[]; tasks: Task[]; limit?: number; apply?: (t: Task) => void; icon?: string };
+
+/** Groups for List and Board. Status groups merge statuses of the same name, so multi-space views still line up. */
+function buildGroups(engine: SyncEngine, tasks: Task[], by: GroupBy, spaces: Space[]): Group[] {
+  if (by === 'status') {
+    const out: Group[] = [];
+    for (const s of spaces.flatMap((x) => x.statuses)) {
+      const g = out.find((x) => x.name === s.name);
+      if (g) { g.ids.push(s.id); if (s.wipLimit) g.limit = Math.min(g.limit ?? Infinity, s.wipLimit); }
+      else out.push({ key: s.name, name: s.name, color: s.colorHex, ids: [s.id], tasks: [], limit: s.wipLimit, apply: (t) => {
+        const st = statusesFor(engine, t).find((x) => x.name === s.name);
+        if (st && st.id !== t.statusId && confirmStatusChange(engine, t, st.id)) updateTask(engine, t.id, (x) => { x.statusId = st.id; });
+      } });
+    }
+    for (const g of out) g.tasks = tasks.filter((t) => g.ids.includes(t.statusId));
+    return out.filter((g) => g.tasks.length || spaces.length === 1);
+  }
+  if (by === 'priority') return PRIORITIES.map((p) => ({ key: String(p.value), name: p.label, color: p.color, ids: [], tasks: tasks.filter((t) => t.priority === p.value), apply: (t: Task) => updateTask(engine, t.id, (x) => { x.priority = p.value; }) }));
+  if (by === 'assignee') {
+    const gs: Group[] = engine.members.map((m) => ({ key: m.id, name: m.name, color: m.colorHex, ids: [], tasks: tasks.filter((t) => t.assigneeIds.includes(m.id)), apply: (t: Task) => updateTask(engine, t.id, (x) => { x.assigneeIds = [m.id]; }) }));
+    gs.push({ key: 'none', name: 'Unassigned', color: '#87909E', ids: [], tasks: tasks.filter((t) => !t.assigneeIds.length), apply: (t) => updateTask(engine, t.id, (x) => { x.assigneeIds = []; }) });
+    return gs.filter((g) => g.tasks.length || g.key !== 'none');
+  }
+  if (by === 'type') {
+    const names = [...new Map(spaces.flatMap((s) => s.taskTypes ?? []).map((x) => [x.name, x])).values()];
+    const setType = (name?: string) => (t: Task) => updateTask(engine, t.id, (x) => {
+      const id = engine.get('spaces', engine.get('lists', x.listId)?.spaceId)?.taskTypes?.find((y) => y.name === name)?.id;
+      if (id) x.typeId = id; else delete x.typeId;
+    });
+    return [
+      { key: 'task', name: 'Task', icon: '✓', color: '#87909E', ids: [], tasks: tasks.filter((t) => !taskTypeOf(engine, t)), apply: setType(undefined) },
+      ...names.map((n) => ({ key: n.name, name: n.name, icon: n.icon, color: n.colorHex, ids: [], tasks: tasks.filter((t) => taskTypeOf(engine, t)?.name === n.name), apply: setType(n.name) })),
+    ];
+  }
+  if (by === 'list') {
+    const ids = [...new Set(tasks.map((t) => t.listId))];
+    return ids.map((id) => { const l = engine.get('lists', id); return { key: id, name: l?.name ?? 'List', color: l?.colorHex ?? engine.get('spaces', l?.spaceId)?.colorHex ?? '#7B68EE', ids: [], tasks: tasks.filter((t) => t.listId === id) }; });
+  }
+  if (by === 'due') {
+    const today = startOfDay(), tomorrow = addDays(today, 1), week = addDays(today, 7);
+    const at = (t: Task) => (t.dueDate ? new Date(t.dueDate) : undefined);
+    const set = (days?: number) => (t: Task) => updateTask(engine, t.id, (x) => { if (days === undefined) delete x.dueDate; else x.dueDate = iso(addDays(today, days)); });
+    return [
+      { key: 'overdue', name: 'Overdue', color: '#E5484D', ids: [], tasks: tasks.filter((t) => at(t) && at(t)! < today && !isClosed(engine, t)) },
+      { key: 'today', name: 'Today', color: '#F0A33A', ids: [], tasks: tasks.filter((t) => at(t) && at(t)! >= today && at(t)! < tomorrow), apply: set(0) },
+      { key: 'week', name: 'Next 7 days', color: '#5B8DEF', ids: [], tasks: tasks.filter((t) => at(t) && at(t)! >= tomorrow && at(t)! < week), apply: set(1) },
+      { key: 'later', name: 'Later', color: '#7B68EE', ids: [], tasks: tasks.filter((t) => at(t) && at(t)! >= week), apply: set(7) },
+      { key: 'none', name: 'No due date', color: '#87909E', ids: [], tasks: tasks.filter((t) => !at(t) || (at(t)! < today && isClosed(engine, t))), apply: set(undefined) },
+    ];
+  }
+  return [{ key: 'all', name: 'All tasks', color: '#7B68EE', ids: [], tasks }];
+}
 
 function scopeTitle(engine: SyncEngine, scope: Scope) {
   if (scope.kind === 'mine') return 'My Tasks';
@@ -421,26 +596,46 @@ function FormView({ defaultList, lists }: { defaultList: ID; lists: ID[] }) {
   );
 }
 
+function GroupHeader({ g, collapsed, onToggle }: { g: Group; collapsed: boolean; onToggle: () => void }) {
+  const { engine } = useApp();
+  // Closed tasks don't count against a work-in-progress limit.
+  const open = g.tasks.filter((t) => !isClosed(engine, t)).length;
+  const over = g.limit !== undefined && open > g.limit;
+  return (
+    <div className="group-h">
+      <button className="btn ghost sm" onClick={onToggle} aria-label={collapsed ? 'Expand' : 'Collapse'}>{collapsed ? '▸' : '▾'}</button>
+      <span className="label" style={{ background: g.color }}>{g.icon ? `${g.icon} ` : ''}{g.name}</span>
+      <span className={`small ${over ? 'wip-over' : 'muted'}`} title={g.limit ? `Work-in-progress limit ${g.limit}` : undefined}>{g.limit ? `${open} / ${g.limit}` : g.tasks.length}{over ? ' · over limit' : ''}</span>
+    </div>
+  );
+}
+
 function ListView({ groups, onOpen }: { groups: Group[]; onOpen: (id: ID) => void }) {
   const { engine } = useApp();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [over, setOver] = useState('');
   return (
-    <div className="card" style={{ padding: 8 }}>
+    <div className="card list-card" style={{ padding: 8 }}>
       {groups.map((g) => (
-        <div key={g.name}>
-          <div className="group-h">
-            <button className="btn ghost sm" onClick={() => setCollapsed((s) => { const n = new Set(s); n.has(g.name) ? n.delete(g.name) : n.add(g.name); return n; })}>{collapsed.has(g.name) ? '▸' : '▾'}</button>
-            <span className="label" style={{ background: g.color }}>{g.name}</span>
-            <span className="small muted">{g.tasks.length}</span>
-          </div>
-          {!collapsed.has(g.name) && g.tasks.map((t) => <TaskRow key={t.id} t={t} onOpen={onOpen} />)}
-          {!collapsed.has(g.name) && g.tasks.length === 0 && <div className="small faint" style={{ padding: '4px 36px' }}>No tasks</div>}
+        <div key={g.key} className={over === g.key ? 'drop-on' : ''}
+          onDragOver={g.apply ? (e) => { e.preventDefault(); setOver(g.key); } : undefined} onDragLeave={() => setOver('')}
+          onDrop={g.apply ? (e) => { e.preventDefault(); setOver(''); const t = engine.get('tasks', e.dataTransfer.getData('text/plain')); if (t) g.apply!(t); } : undefined}>
+          <GroupHeader g={g} collapsed={collapsed.has(g.key)} onToggle={() => setCollapsed((s) => { const n = new Set(s); n.has(g.key) ? n.delete(g.key) : n.add(g.key); return n; })} />
+          {!collapsed.has(g.key) && g.tasks.map((t) => <TaskRow key={t.id} t={t} onOpen={onOpen} />)}
+          {!collapsed.has(g.key) && g.tasks.length === 0 && <div className="small faint" style={{ padding: '4px 36px' }}>No tasks</div>}
         </div>
       ))}
-      {groups.length === 0 && <Empty icon="✅" title="No tasks" />}
+      {groups.length === 0 && <Empty icon="✅" title="No tasks" sub="Nothing matches. Add one above, or clear the filters." />}
       <span hidden>{engine.version}</span>
     </div>
   );
+}
+
+/** Pinned custom fields of the task's space, as small chips. */
+function PinnedFields({ t }: { t: Task }) {
+  const { engine } = useApp();
+  const fields = (engine.get('spaces', engine.get('lists', t.listId)?.spaceId)?.fields ?? []).filter((x) => x.pinned);
+  return <>{fields.map((x) => { const v = fieldDisplay(engine, t, x); return v ? <span key={x.id} className="field-chip" title={x.name}><span className="faint">{x.name}</span> {v}</span> : null; })}</>;
 }
 
 function TaskRow({ t, onOpen }: { t: Task; onOpen: (id: ID) => void }) {
@@ -449,15 +644,21 @@ function TaskRow({ t, onOpen }: { t: Task; onOpen: (id: ID) => void }) {
   const closed = isClosed(engine, t);
   const subs = engine.list('tasks').filter((x) => x.parentId === t.id && !x.archived);
   const items = t.checklists.flatMap((c) => c.items);
+  const blocked = t.blockedBy.some((b) => { const x = engine.get('tasks', b); return x && !x.archived && !isClosed(engine, x); });
   return (
-    <div className="trow" onClick={() => onOpen(t.id)}>
-      <span className="check" style={{ color: st?.colorHex, background: closed ? st?.colorHex : 'transparent' }} onClick={(e) => { e.stopPropagation(); toggleDone(engine, t); }} title="Mark complete">{closed ? <span style={{ color: '#fff' }}>✓</span> : ''}</span>
+    <div className="trow" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', t.id)} onClick={() => onOpen(t.id)}>
+      <span className="check" style={{ color: st?.colorHex, background: closed ? st?.colorHex : 'transparent' }} onClick={(e) => { e.stopPropagation(); toggleDone(engine, t); }} title={closed ? 'Reopen' : 'Mark complete'}>{closed ? <span style={{ color: '#fff' }}>✓</span> : ''}</span>
       <span className="row grow" style={{ minWidth: 0 }}>
+        <TypeBadge t={t} />
+        <KeyChip t={t} />
         <span className="ellipsis" style={{ textDecoration: closed ? 'line-through' : undefined, color: closed ? 'var(--muted)' : undefined }}>{t.title}</span>
+        {blocked && <span className="small orange" title="Waiting on another task">⛔</span>}
         {subs.length > 0 && <span className="small muted">↳ {subs.length}</span>}
         {items.length > 0 && <span className="small muted">☑ {items.filter((i) => i.done).length}/{items.length}</span>}
         {t.comments.length > 0 && <span className="small muted">💬 {t.comments.length}</span>}
+        {(t.extraListIds?.length ?? 0) > 0 && <span className="small muted" title="Also in other lists">⧉ {t.extraListIds!.length + 1}</span>}
         {t.tags.slice(0, 3).map((x) => <Tag key={x} t={x} />)}
+        <span className="hide-sm row" style={{ gap: 4 }}><PinnedFields t={t} /></span>
       </span>
       <span className="hide-sm"><Avatars ids={t.assigneeIds} /></span>
       <span className={`small ${isOverdue(engine, t) ? 'red' : 'muted'}`}>{fmtDate(t.dueDate)}</span>
@@ -469,33 +670,34 @@ function TaskRow({ t, onOpen }: { t: Task; onOpen: (id: ID) => void }) {
 function BoardView({ groups, onOpen }: { groups: Group[]; onOpen: (id: ID) => void }) {
   const { engine } = useApp();
   const [over, setOver] = useState('');
-  const drop = (g: Group, id: ID) => {
-    const t = engine.get('tasks', id);
-    if (!t) return;
-    const st = statusesFor(engine, t).find((s) => s.name === g.name);
-    if (st) updateTask(engine, id, (x) => { x.statusId = st.id; });
-  };
   return (
     <div className="board">
-      {groups.map((g) => (
-        <div key={g.name} className="col-b" style={{ background: `color-mix(in srgb, ${g.color} ${over === g.name ? 18 : 7}%, transparent)`, borderTop: `3px solid ${g.color}` }}
-          onDragOver={(e) => { e.preventDefault(); setOver(g.name); }} onDragLeave={() => setOver('')}
-          onDrop={(e) => { e.preventDefault(); setOver(''); drop(g, e.dataTransfer.getData('text/plain')); }}>
-          <div className="row"><strong className="small">{g.name.toUpperCase()}</strong><span className="small muted">{g.tasks.length}</span></div>
-          {g.tasks.map((t) => (
-            <div key={t.id} className="tcard" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', t.id)} onClick={() => onOpen(t.id)}>
-              <div className="small faint">{engine.get('lists', t.listId)?.name}</div>
-              <div style={{ fontWeight: 500, margin: '4px 0' }}>{t.title}</div>
-              <div className="row wrap">{t.tags.slice(0, 3).map((x) => <Tag key={x} t={x} />)}</div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <Avatars ids={t.assigneeIds} size={20} />
-                <span className={`small ${isOverdue(engine, t) ? 'red' : 'muted'}`}>{fmtDate(t.dueDate)}</span>
-                <span className="right"><Flag p={t.priority} /></span>
+      {groups.map((g) => {
+        const open = g.tasks.filter((t) => !isClosed(engine, t)).length;
+        const wipOver = g.limit !== undefined && open > g.limit;
+        return (
+          <div key={g.key} className={`col-b ${wipOver ? 'wip' : ''}`} style={{ background: `color-mix(in srgb, ${g.color} ${over === g.key ? 18 : 7}%, transparent)`, borderTop: `3px solid ${g.color}` }}
+            onDragOver={g.apply ? (e) => { e.preventDefault(); setOver(g.key); } : undefined} onDragLeave={() => setOver('')}
+            onDrop={g.apply ? (e) => { e.preventDefault(); setOver(''); const t = engine.get('tasks', e.dataTransfer.getData('text/plain')); if (t) g.apply!(t); } : undefined}>
+            <div className="row"><strong className="small">{g.icon ? `${g.icon} ` : ''}{g.name.toUpperCase()}</strong>
+              <span className={`small ${wipOver ? 'wip-over' : 'muted'}`} title={g.limit ? `Work-in-progress limit ${g.limit}` : undefined}>{g.limit ? `${open}/${g.limit}` : g.tasks.length}</span>
+              {wipOver && <span className="small wip-over right" title="More open tasks than the limit">over limit</span>}</div>
+            {g.tasks.map((t) => (
+              <div key={t.id} className="tcard" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', t.id)} onClick={() => onOpen(t.id)}>
+                <div className="row small faint"><TypeBadge t={t} /><KeyChip t={t} /><span className="ellipsis grow">{engine.get('lists', t.listId)?.name}</span></div>
+                <div style={{ fontWeight: 500, margin: '4px 0' }}>{t.title}</div>
+                <div className="row wrap">{t.tags.slice(0, 3).map((x) => <Tag key={x} t={x} />)}<PinnedFields t={t} /></div>
+                <div className="row" style={{ marginTop: 6 }}>
+                  <Avatars ids={t.assigneeIds} size={20} />
+                  <span className={`small ${isOverdue(engine, t) ? 'red' : 'muted'}`}>{fmtDate(t.dueDate)}</span>
+                  <span className="right"><Flag p={t.priority} /></span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ))}
+            ))}
+            {!g.tasks.length && <div className="small faint" style={{ padding: 10, textAlign: 'center' }}>Drop tasks here</div>}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -540,6 +742,10 @@ function TableView({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: ID) => void 
   const { engine } = useApp();
   const [sort, setSort] = useState<string>('due');
   const [editFields, setEditFields] = useState(false);
+  const [calc, setCalc] = useState<Record<string, string>>(() => { try { return JSON.parse(localStorage.getItem('table.calc') || '{}'); } catch { return {}; } });
+  const setCalcFor = (n: string, v: string) => { const next = { ...calc, [n]: v }; setCalc(next); try { localStorage.setItem('table.calc', JSON.stringify(next)); } catch { /* private mode */ } };
+  const showKey = tasks.some((t) => taskKey(engine, t));
+  const showType = tasks.some((t) => engine.get('spaces', engine.get('lists', t.listId)?.spaceId)?.taskTypes?.length);
   // Custom-field columns: the fields of every space shown, once each.
   const spaces = [...new Map(tasks.map((t) => engine.get('spaces', engine.get('lists', t.listId)?.spaceId)).filter(Boolean).map((sp) => [sp!.id, sp!])).values()];
   const fields = spaces.flatMap((sp) => sp.fields);
@@ -566,6 +772,7 @@ function TableView({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: ID) => void 
       )}
       <table className="t">
         <thead><tr>
+          {showKey && <th>ID</th>}{showType && <th>Type</th>}
           <th onClick={() => setSort('title')} style={{ cursor: 'pointer' }}>Name</th><th>Status</th><th>Assignees</th>
           <th onClick={() => setSort('priority')} style={{ cursor: 'pointer' }}>Priority</th><th>Start</th>
           <th onClick={() => setSort('due')} style={{ cursor: 'pointer' }}>Due</th><th className="num">Estimate</th><th>Tags</th><th>List</th>
@@ -573,6 +780,7 @@ function TableView({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: ID) => void 
         </tr></thead>
         <tbody>{sorted.map((t) => (
           <tr key={t.id} className="click" onClick={() => onOpen(t.id)}>
+            {showKey && <td className="mono small muted">{taskKey(engine, t) ?? ''}</td>}{showType && <td className="small">{taskTypeOf(engine, t) ? `${taskTypeOf(engine, t)!.icon} ${taskTypeOf(engine, t)!.name}` : '✓ Task'}</td>}
             <td>{t.title}</td><td><StatusPill s={statusOf(engine, t)} /></td><td><Avatars ids={t.assigneeIds} size={18} /></td>
             <td><Flag p={t.priority} /> {PRIORITIES.find((p) => p.value === t.priority)?.label}</td>
             <td>{fmtDate(t.startDate)}</td><td className={isOverdue(engine, t) ? 'red' : ''}>{fmtDate(t.dueDate)}</td>
@@ -585,11 +793,20 @@ function TableView({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: ID) => void 
           </tr>
         ))}</tbody>
         {names.some((n) => fields.some((f) => f.name === n && ['number', 'money', 'formula'].includes(f.type))) && (
-          <tfoot><tr><td colSpan={9} className="small muted">Sum</td>
+          <tfoot><tr><td colSpan={9 + (showKey ? 1 : 0) + (showType ? 1 : 0)} className="small muted">Calculate</td>
             {names.map((n) => {
-              const numeric = fields.some((f) => f.name === n && ['number', 'money', 'formula'].includes(f.type));
+              const numeric = fields.some((f) => f.name === n && ['number', 'money', 'formula', 'progress', 'rating'].includes(f.type));
+              if (!numeric) return <td key={n} />;
               const vals = sorted.map((t) => parseFloat(cell(t, n))).filter((x) => !isNaN(x));
-              return <td key={n} className="num small"><strong>{numeric && vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) * 100) / 100 : ''}</strong></td>;
+              const how = calc[n] ?? 'sum';
+              const r = !vals.length ? undefined : how === 'avg' ? vals.reduce((a, b) => a + b, 0) / vals.length : how === 'min' ? Math.min(...vals) : how === 'max' ? Math.max(...vals) : how === 'count' ? vals.length : vals.reduce((a, b) => a + b, 0);
+              return (
+                <td key={n} className="num small">
+                  <select className="plain small muted" value={how} onChange={(e) => setCalcFor(n, e.target.value)} title="Calculation">
+                    <option value="sum">Sum</option><option value="avg">Average</option><option value="min">Min</option><option value="max">Max</option><option value="count">Count</option>
+                  </select>{' '}<strong>{r === undefined ? '—' : Math.round(r * 100) / 100}</strong>
+                </td>
+              );
             })}</tr></tfoot>
         )}
       </table>
@@ -677,9 +894,8 @@ function GanttView({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: ID) => void 
 // ---------------------------------------------------------------- task drawer
 
 export function TaskDrawer({ id, onClose }: { id: ID; onClose: () => void }) {
-  const { engine, openTask } = useApp();
+  const { engine, openTask, toast } = useApp();
   const t = engine.get('tasks', id);
-  const [comment, setComment] = useState('');
   const [sub, setSub] = useState('');
   const [tag, setTag] = useState('');
   const [edit, setEdit] = useState(false);
@@ -699,9 +915,9 @@ export function TaskDrawer({ id, onClose }: { id: ID; onClose: () => void }) {
       <div className="scrim" onClick={onClose} />
       <aside className="drawer">
         <div className="row" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)' }}>
-          <span className="small muted grow ellipsis">{space?.name} › {list?.name}</span>
+          <span className="row grow" style={{ minWidth: 0 }}><TypeBadge t={t} withName /><KeyChip t={t} /><span className="small muted ellipsis">{space?.name} › {list?.name}</span></span>
           {viewers.length > 0 && <span className="row small muted"><Avatars ids={viewers.map((v) => v.user_id)} size={18} /> viewing</span>}
-          <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(`mkprod://task/${id}`); }}>Copy link</button>
+          <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(`mkprod://task/${id}`); toast('Link copied'); }}>Copy link</button>
           <button className="btn sm danger" onClick={() => { trashTask(engine, id); onClose(); }}>Delete</button>
           <button className="btn ghost" onClick={onClose} aria-label="Close">✕</button>
         </div>
@@ -710,7 +926,9 @@ export function TaskDrawer({ id, onClose }: { id: ID; onClose: () => void }) {
           <textarea className="plain" rows={1} style={{ fontSize: 22, fontWeight: 700, width: '100%', resize: 'none' }} value={t.title} onChange={(e) => up((x) => { x.title = e.target.value; })} />
           <div className="props" style={{ marginTop: 10 }}>
             <span className="k">Status</span>
-            <select className="input" value={t.statusId} onChange={(e) => up((x) => { x.statusId = e.target.value; })}>{statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            <select className="input" value={t.statusId} onChange={(e) => { const v = e.target.value; if (confirmStatusChange(engine, t, v)) up((x) => { x.statusId = v; }); }}>{statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            {(space?.taskTypes?.length ?? 0) > 0 && <><span className="k">Type</span><TypeSelect t={t} up={up} /></>}
+            <span className="k">Lists</span><ListsRow t={t} up={up} />
             <span className="k">Assignees</span>
             <div className="row wrap">
               {engine.members.map((m) => (
@@ -808,33 +1026,9 @@ export function TaskDrawer({ id, onClose }: { id: ID; onClose: () => void }) {
 
           <Attachments items={t.attachments} onChange={(fn) => up((x) => { fn(x.attachments); })} />
 
-          <div className="section">
-            <h3>Comments</h3>
-            {t.comments.map((c, i) => (
-              <div key={c.id} className="row" style={{ alignItems: 'flex-start', padding: '8px 0', opacity: c.resolved ? 0.55 : 1 }}>
-                <Avatar m={member(engine, c.authorId)} size={26} />
-                <div className="grow">
-                  <div className="row"><strong>{member(engine, c.authorId)?.name ?? 'Unknown'}</strong><span className="small muted">{new Date(c.date).toLocaleString()}</span>
-                    {c.assigneeId && <span className="small">→ <Avatar m={member(engine, c.assigneeId)} size={16} /></span>}
-                    <span className="right" />
-                    <select className="input" style={{ fontSize: 11, padding: '1px 4px' }} value={c.assigneeId ?? ''} title="Assign comment" onChange={(e) => up((x) => { if (e.target.value) x.comments[i].assigneeId = e.target.value; else delete x.comments[i].assigneeId; })}>
-                      <option value="">Assign…</option>{engine.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-                    <button className="btn sm ghost" onClick={() => up((x) => { x.comments[i].resolved = !c.resolved; })}>{c.resolved ? 'Reopen' : 'Resolve'}</button>
-                  </div>
-                  <Markdown text={c.text} />
-                </div>
-              </div>
-            ))}
-            <div className="row" style={{ alignItems: 'flex-end' }}>
-              <textarea className="input grow" rows={2} placeholder="Comment… use @name to mention" value={comment} onChange={(e) => setComment(e.target.value)} />
-              <button className="btn primary" disabled={!comment.trim()} onClick={() => {
-                const text = comment.trim();
-                up((x) => { x.comments.push({ id: uid(), authorId: engine.me, text, date: iso(), resolved: false }); x.activity.push({ id: uid(), date: iso(), text: `${member(engine, engine.me)?.name} commented` }); });
-                setComment('');
-              }}>Send</button>
-            </div>
-          </div>
+          <CommentsSection t={t} up={up} />
+
+          <TimeInStatus t={t} />
 
           <div className="section">
             <h3>Activity</h3>

@@ -52,6 +52,7 @@ struct TaskDetailView: View {
                 relationships
                 attachments
                 timeTracking
+                section("Time in Status") { TimeInStatusView(task: task) }
                 reminders
                 feed
             }
@@ -61,6 +62,8 @@ struct TaskDetailView: View {
 
     private var topBar: some View {
         HStack {
+            TypeBadge(task: task, withName: true)
+            TaskKeyChip(task: task)
             Text(store.locationName(task)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             Spacer()
             ViewersBadge(taskId: taskId)
@@ -93,6 +96,17 @@ struct TaskDetailView: View {
                     .buttonStyle(.plain).help("Next status")
                 }
             }
+            if let types = store.space(ofTask: task)?.taskTypes, !types.isEmpty {
+                GridRow {
+                    propLabel("Type", "square.stack.3d.down.right")
+                    Picker("", selection: binding(\.typeId)) {
+                        Text("✓ Task").tag(UUID?.none)
+                        ForEach(types) { Text("\($0.icon) \($0.name)").tag(Optional($0.id)) }
+                    }
+                    .labelsHidden().fixedSize()
+                }
+            }
+            GridRow { propLabel("Lists", "list.bullet.indent"); TaskListsPicker(task: task) }
             GridRow { propLabel("Assignees", "person.2"); AssigneeMenu(task: task) }
             GridRow { propLabel("Priority", "flag"); PriorityMenu(task: task, showLabel: true) }
             GridRow {
@@ -172,7 +186,8 @@ struct TaskDetailView: View {
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                     ForEach(fields) { f in
                         GridRow {
-                            Text(f.name).foregroundStyle(.secondary).frame(width: 120, alignment: .leading)
+                            Text(f.name + ((f.required ?? false) ? " *" : "")).foregroundStyle(.secondary).frame(width: 120, alignment: .leading)
+                                .help((f.required ?? false) ? "Required before closing" : "")
                             CustomFieldEditor(taskId: taskId, field: f)
                         }
                     }
@@ -401,35 +416,7 @@ struct TaskDetailView: View {
             }
             .pickerStyle(.segmented).labelsHidden()
             if feedTab == 0 {
-                ForEach(task.comments) { c in
-                    HStack(alignment: .top) {
-                        AvatarView(member: store.member(c.authorId), size: 26)
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack {
-                                Text(store.member(c.authorId)?.name ?? "Unknown").font(.callout.bold())
-                                Text(c.date.formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(.secondary)
-                                Spacer()
-                                Menu {
-                                    Button("Unassigned") { setCommentAssignee(c.id, nil) }
-                                    ForEach(store.data.members) { m in Button(m.name) { setCommentAssignee(c.id, m.id) } }
-                                } label: {
-                                    if let a = c.assigneeId { AvatarView(member: store.member(a), size: 16) } else { Image(systemName: "person.badge.plus") }
-                                }
-                                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                                .help("Assign this comment")
-                                Button(c.resolved ? "Resolved" : "Resolve") {
-                                    store.updateTask(taskId) { t in if let i = t.comments.firstIndex(where: { $0.id == c.id }) { t.comments[i].resolved.toggle() } }
-                                }
-                                .buttonStyle(.link).font(.caption)
-                                Button { store.updateTask(taskId) { $0.comments.removeAll { $0.id == c.id } } } label: { Image(systemName: "trash").font(.caption) }
-                                    .buttonStyle(.plain)
-                            }
-                            MarkdownText(text: c.text).opacity(c.resolved ? 0.5 : 1)
-                        }
-                    }
-                    .padding(8)
-                    .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
-                }
+                CommentThreadView(taskId: taskId)
                 HStack(alignment: .bottom) {
                     TextField("Comment… use @name to mention", text: $newComment, axis: .vertical)
                         .lineLimit(1...6)

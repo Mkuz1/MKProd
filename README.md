@@ -32,10 +32,10 @@ Requirements: macOS 14+ and the Xcode Command Line Tools. Without full Xcode, th
 | Area | What's included |
 |---|---|
 | Hierarchy | Workspace → Spaces (color, icon, privacy) → Folders → Lists; favorites, rename, duplicate, archive, delete |
-| Tasks | Custom statuses per Space, priorities, multiple assignees, watchers, tags, start/due dates, estimates, sprint points, milestones, recurring tasks, subtasks, checklists (with assignees), dependencies (waiting on / blocking), linked tasks, attachments, comments with @mentions and resolve, activity log |
+| Tasks | Custom statuses per Space, priorities, multiple assignees, watchers, tags, start/due dates, estimates, sprint points, milestones, recurring tasks, subtasks, checklists (with assignees), dependencies (waiting on / blocking), linked tasks, attachments, comments with @mentions, threaded replies, emoji reactions and resolve, activity log; task types and task IDs (e.g. OPS-42) per Space; tasks in multiple lists; time in status; warnings before closing a task with open work; optional rescheduling of dependent tasks and subtasks |
 | Custom fields | Text, number, money, dropdown, checkbox, date, URL, email, rating, people, phone, location, automatic progress and formulas (per Space; Mac and website) |
-| Views | List (grouped, collapsible, inline add, drag to regroup), Board (drag between columns), Calendar (month/week, drag to reschedule), Gantt (drag bars, zoom, dependency arrows, critical path, saved baselines, today line), Table (sortable, custom-field and formula columns), Chart (bar/donut/line by any property or field), Workload (capacity heatmap), Mind Map, Form (submissions create tasks) |
-| Filtering | Search, assignee, priority, tag, show closed, overdue only, "Me mode"; group by status/priority/assignee/due/list; sort options |
+| Views | List (grouped, collapsible, inline add, drag to regroup), Board (drag between columns), Calendar (month/week, drag to reschedule), Gantt (drag bars, zoom, dependency arrows, critical path, saved baselines, today line), Table (sortable, custom-field and formula columns, sum/average/min/max/count), Chart (bar/donut/line by any property or field), Workload (capacity heatmap), Team (per person: in progress, overdue, done this week), Activity (feed of changes and comments), Mind Map, Form (submissions create tasks); work-in-progress limits per status; saved views (shared or private, one opens first) |
+| Filtering | Search (also by task ID), assignee, priority, tag, task type, show closed, overdue only, "Me mode"; group by status/priority/assignee/task type/due/list; sort options; CSV export of the tasks in view (website) |
 | Home | My Work (overdue/today/next/unscheduled), reminders, recents, notepad, 7-day agenda, goals |
 | Inbox | Notifications for assignments, mentions, approvals, reminders; read/clear/restore. Synced across all your devices, private to you |
 | Whiteboards | Stickies, text, shapes, connectors, colors, resize, zoom, convert to task; the same boards on Mac, website, Windows and Android |
@@ -48,7 +48,7 @@ Requirements: macOS 14+ and the Xcode Command Line Tools. Without full Xcode, th
 | Time tracking | Global timer (toolbar, ⇧⌘T), per-task timer, manual entries, billable flag, weekly timesheets |
 | Automations | When (created / status / priority / assignee / tag / due date passed) → Then (status, priority, assign, tag, move, comment, set due, archive), scoped per Space |
 | Templates | Save any task (with subtasks) as a template; instantiate into any list |
-| Other | ⌘K command palette and global search, JSON backup/restore, CSV import and export of tasks, macOS notifications for reminders, settings for people/statuses/fields |
+| Other | ⌘K command palette and global search (website: also commands; shortcuts n, /, ?), space settings for statuses, task types, IDs, scheduling and fields, JSON backup/restore, CSV import and export of tasks, macOS notifications for reminders, settings for people/statuses/fields |
 
 ## Website, team sync & collaboration
 

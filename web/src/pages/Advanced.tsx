@@ -6,10 +6,11 @@ import {
   formulaScope, isComputedField, isWorkingDay, projectSummary, resourceFor, setCustomValue, spaceOf, taskProgress,
 } from '../features';
 import { updateTask } from './Tasks';
+import { taskTypeOf } from '../work';
 
 // ---------------------------------------------------------------- Chart view
 
-type GroupBy = 'status' | 'priority' | 'assignee' | 'tag' | 'list' | 'month' | `field:${string}`;
+type GroupBy = 'status' | 'priority' | 'assignee' | 'tag' | 'list' | 'type' | 'month' | `field:${string}`;
 type Metric = 'count' | 'estimate' | 'points' | 'tracked' | `field:${string}`;
 
 /** Bar, donut or line chart of the tasks in the current scope, grouped and summed by any property. */
@@ -29,6 +30,7 @@ export function ChartView({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: ID) =
     if (by === 'assignee') return t.assigneeIds.length ? t.assigneeIds.map((a) => member(engine, a)?.name ?? '?') : ['Unassigned'];
     if (by === 'tag') return t.tags.length ? t.tags : ['No tag'];
     if (by === 'list') return [engine.get('lists', t.listId)?.name ?? '—'];
+    if (by === 'type') { const ty = taskTypeOf(engine, t); return [ty ? `${ty.icon} ${ty.name}` : '✓ Task']; }
     if (by === 'month') return [t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 7) : 'No due date'];
     const f = fields.find((x) => x.id === by.slice(6));
     if (!f) return ['—'];
@@ -72,7 +74,7 @@ export function ChartView({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: ID) =
         <label className="row small">Group by
           <select className="input" value={by} onChange={(e) => { setBy(e.target.value as GroupBy); keep('chart.by', e.target.value); }}>
             <option value="status">Status</option><option value="priority">Priority</option><option value="assignee">Assignee</option>
-            <option value="tag">Tag</option><option value="list">List</option><option value="month">Due month</option>
+            <option value="tag">Tag</option><option value="list">List</option><option value="type">Task type</option><option value="month">Due month</option>
             {groupFields.map((f) => <option key={f.id} value={`field:${f.id}`}>{f.name}</option>)}
           </select></label>
         <label className="row small">Measure
@@ -129,6 +131,10 @@ export function FieldsEditor({ space, onClose }: { space: Space; onClose: () => 
               )}
               {f.type === 'progress' && <span className="small muted">Share of subtasks and checklist items done</span>}
             </td>
+            <td style={{ width: 150 }} className="small">
+              {!isComputedField(f) && <label className="row" title="Closing a task with this field empty asks first"><input type="checkbox" checked={!!f.required} onChange={(e) => up((x) => { if (e.target.checked) x[i].required = true; else delete x[i].required; })} /> Required</label>}
+              <label className="row" title="Show on list rows and board cards"><input type="checkbox" checked={!!f.pinned} onChange={(e) => up((x) => { if (e.target.checked) x[i].pinned = true; else delete x[i].pinned; })} /> Pinned</label>
+            </td>
             <td className="num" style={{ width: 90 }}>
               <button className="btn ghost sm" disabled={i === 0} onClick={() => up((x) => { [x[i - 1], x[i]] = [x[i], x[i - 1]]; })}>↑</button>
               <button className="btn ghost sm" onClick={() => confirm(`Delete the field "${f.name}"? Values stay on tasks but are hidden.`) && up((x) => { x.splice(i, 1); })}>🗑</button>
@@ -160,7 +166,7 @@ export function TaskFields({ t }: { t: Task }) {
         {space.fields.map((f) => {
           const v = customValue(t, f.id) ?? '';
           return [
-            <span key={f.id + 'k'} className="k">{f.name}</span>,
+            <span key={f.id + 'k'} className="k">{f.name}{f.required && <span className="red" title="Required before closing"> *</span>}</span>,
             <div key={f.id + 'v'} className="row">
               {isComputedField(f) ? <span className={f.type === 'formula' && fieldDisplay(engine, t, f).startsWith('#') ? 'red mono' : 'mono'}>
                 {f.type === 'progress' ? <ProgressBar pct={taskProgress(engine, t)} /> : fieldDisplay(engine, t, f) || '—'}</span>

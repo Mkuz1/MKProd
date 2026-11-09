@@ -14,15 +14,32 @@ export const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDat
 export interface Member { id: ID; name: string; email: string; colorHex: string }
 
 export type StatusKind = 'open' | 'active' | 'done' | 'closed';
-export interface StatusDef { id: ID; name: string; colorHex: string; kind: StatusKind }
-export interface FieldDef { id: ID; name: string; type: string; options: string[] }
-export interface Space { id: ID; name: string; colorHex: string; icon: string; statuses: StatusDef[]; fields: FieldDef[]; isPrivate: boolean }
+/** `wipLimit`: most open tasks the status should hold; Board and List flag the column when it's exceeded. */
+export interface StatusDef { id: ID; name: string; colorHex: string; kind: StatusKind; wipLimit?: number }
+/** `required`: closing a task with it empty asks first. `pinned`: shown on rows and cards. */
+export interface FieldDef { id: ID; name: string; type: string; options: string[]; required?: boolean; pinned?: boolean }
+/** A kind of work a task can represent (Bug, Client, Event…); tasks without `typeId` are plain tasks. */
+export interface TaskTypeDef { id: ID; name: string; icon: string; colorHex: string }
+export interface Space {
+  id: ID; name: string; colorHex: string; icon: string; statuses: StatusDef[]; fields: FieldDef[]; isPrivate: boolean
+  /** Task IDs: when set, tasks in this space show PREFIX-<number>. */
+  idPrefix?: string
+  taskTypes?: TaskTypeDef[]
+  /** When a task's dates move, move the tasks waiting on it by the same number of days. */
+  rescheduleDependencies?: boolean
+  /** When a task's due date moves, move its open subtasks by the same number of days. */
+  remapSubtasks?: boolean
+}
 export interface Folder { id: ID; spaceId: ID; name: string }
 export interface TaskList { id: ID; spaceId: ID; folderId?: ID; name: string; colorHex?: string; archived: boolean; sprintStart?: string; sprintEnd?: string }
 
 export interface ChecklistItem { id: ID; text: string; done: boolean; assigneeId?: ID }
 export interface Checklist { id: ID; name: string; items: ChecklistItem[] }
-export interface Comment { id: ID; authorId: ID; text: string; date: string; resolved: boolean; assigneeId?: ID }
+export interface Reaction { emoji: string; memberIds: ID[] }
+/** `parentId` makes a comment a reply in that comment's thread. */
+export interface Comment { id: ID; authorId: ID; text: string; date: string; resolved: boolean; assigneeId?: ID; parentId?: ID; reactions?: Reaction[] }
+/** One entry per status change: the task entered `statusId` at `at`. */
+export interface StatusChange { statusId: ID; at: string }
 export interface Activity { id: ID; date: string; text: string }
 /** `path` is a link or file name; `fileId`/`size` are set when the encrypted file itself is stored on the server. */
 export interface Attachment { id: ID; name: string; path: string; added: string; fileId?: ID; size?: number; mime?: string }
@@ -37,6 +54,11 @@ export interface Task {
   order: number; archived: boolean; isMilestone: boolean; trashedAt?: string
   /** Planned dates saved from the Gantt ("Save baseline"), drawn under the live bars to show slippage. */
   baselineStart?: string; baselineDue?: string
+  /** Task type (Space.taskTypes) and number for the task ID (Space.idPrefix). */
+  typeId?: ID; number?: number
+  /** Other lists the task also appears in; `listId` stays its home. */
+  extraListIds?: ID[]
+  statusLog?: StatusChange[]
 }
 
 export interface Doc { id: ID; parentId?: ID; spaceId?: ID; title: string; body: string; icon: string; created: string; updated: string; favorite: boolean }
@@ -63,6 +85,17 @@ export interface Reminder { id: ID; title: string; date: string; done: boolean; 
 /** Resource management: one record per person (id = member id). `workDays` uses 0 = Sunday … 6 = Saturday. */
 export interface TimeOff { id: ID; start: string; end: string; note: string }
 export interface Resource { id: ID; hoursPerDay: number; workDays: number[]; timeOff: TimeOff[] }
+
+/**
+ * A saved view: a named view mode plus its filters, grouping and sorting, for one location
+ * ("everything", "mine", "space:<id>", "folder:<id>", "list:<id>"). Shared views live in `views`;
+ * private ones in `privateViews`, encrypted with the person's own key. Same shape as SavedView in Swift.
+ */
+export interface ViewFilter { search: string; assigneeId?: ID; priority?: number; tag?: string; typeId?: ID; showClosed: boolean; onlyOverdue: boolean }
+export interface SavedView {
+  id: ID; name: string; scope: string; mode: string; groupBy: string; sortBy: string; filter: ViewFilter
+  ownerId: ID; isDefault: boolean; order: number
+}
 
 // Budget & procurement
 export interface FinEntity { id: ID; name: string; code: string; approvalLevels: string[]; roles: { memberId: ID; role: string }[] }
@@ -107,16 +140,16 @@ export interface Collections {
   dashboards: { id: ID; name: string }; templates: { id: ID; name: string }
   entities: FinEntity; budgets: Budget; orders: Order; savings: Saving; contracts: Contract
   catalog: CatalogItem; audit: AuditEntry; financeSettings: FinanceSettings; shares: ShareLink
-  inbox: InboxItem; reminders: Reminder; resources: Resource
+  inbox: InboxItem; reminders: Reminder; resources: Resource; views: SavedView; privateViews: SavedView
 }
 export type Kind = keyof Collections;
 export const KINDS: Kind[] = [
   'spaces', 'folders', 'lists', 'tasks', 'docs', 'whiteboards', 'channels', 'messages', 'goals', 'timeEntries',
   'automations', 'dashboards', 'templates', 'entities', 'budgets', 'orders', 'savings', 'contracts', 'catalog', 'audit', 'financeSettings', 'shares',
-  'inbox', 'reminders', 'resources',
+  'inbox', 'reminders', 'resources', 'views', 'privateViews',
 ];
 /** Kinds encrypted with the person's own key rather than the workspace key. */
-export const PERSONAL_KINDS: Kind[] = ['inbox', 'reminders'];
+export const PERSONAL_KINDS: Kind[] = ['inbox', 'reminders', 'privateViews'];
 export type Data = { [K in Kind]: Record<ID, Collections[K]> };
 export const emptyData = (): Data => Object.fromEntries(KINDS.map((k) => [k, {}])) as Data;
 

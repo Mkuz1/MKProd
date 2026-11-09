@@ -883,6 +883,8 @@ struct SyncKind {
         // Personal (own-key encrypted): same shapes as the website's InboxItem / Reminder.
         make("inbox", \.inbox, defaults: ["read": false, "cleared": false], personal: true),
         make("reminders", \.reminders, defaults: ["done": false, "notified": false], personal: true),
+        make("views", \.views, defaults: ["mode": "list", "groupBy": "status", "sortBy": "manual", "filter": [String: Any](), "isDefault": false, "order": 0]),
+        make("privateViews", \.privateViews, defaults: ["mode": "list", "groupBy": "status", "sortBy": "manual", "filter": [String: Any](), "isDefault": false, "order": 0], personal: true),
     ]
 
     static let byName: [String: SyncKind] = Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })

@@ -267,11 +267,18 @@ struct CommandPalette: View {
             ("Home", "house", .home), ("Inbox", "tray", .inbox), ("My Tasks", "person", .myTasks), ("Everything", "square.stack.3d.up", .everything),
             ("Whiteboards", "scribble.variable", .whiteboards), ("Goals", "target", .goals), ("Dashboards", "chart.bar", .dashboards),
             ("Timesheets", "clock", .timesheet), ("Automations", "bolt", .automations), ("Templates", "square.on.square.dashed", .templates),
+            ("Portfolio", "square.stack.3d.up", .portfolio), ("Resources", "person.badge.clock", .resources), ("Content Directory", "books.vertical", .directory),
         ]
         for n in nav where q.isEmpty || n.0.localizedCaseInsensitiveContains(q) {
             out.append(Hit(id: "nav\(n.0)", icon: n.1, title: n.0, subtitle: "Go to") { store.selection = n.2 })
         }
         guard !q.isEmpty else { return out }
+        if let t = store.task(byKey: q) {
+            out.insert(Hit(id: "key" + t.id.uuidString, icon: "number", title: "\(q.uppercased()) · \(t.title)", subtitle: "Task ID") {
+                store.selection = .list(t.listId)
+                store.openTaskId = t.id
+            }, at: 0)
+        }
         for l in store.data.lists where l.name.localizedCaseInsensitiveContains(q) {
             out.append(Hit(id: l.id.uuidString, icon: "list.bullet", title: l.name, subtitle: "List · \(store.space(l.spaceId)?.name ?? "")") { store.selection = .list(l.id) })
         }
@@ -279,7 +286,7 @@ struct CommandPalette: View {
             out.append(Hit(id: s.id.uuidString, icon: s.icon, title: s.name, subtitle: "Space") { store.selection = .space(s.id) })
         }
         for t in store.data.tasks where !t.archived && (t.title.localizedCaseInsensitiveContains(q) || t.details.localizedCaseInsensitiveContains(q) || t.tags.contains(where: { $0.localizedCaseInsensitiveContains(q) })) {
-            out.append(Hit(id: t.id.uuidString, icon: "checkmark.circle", title: t.title, subtitle: store.locationName(t)) {
+            out.append(Hit(id: t.id.uuidString, icon: "checkmark.circle", title: t.title, subtitle: [store.taskKey(t), store.locationName(t)].compactMap { $0 }.joined(separator: " · ")) {
                 store.selection = .list(t.listId)
                 store.openTaskId = t.id
             })
@@ -528,6 +535,8 @@ struct SpaceSettingsView: View {
                                 TextField("Status", text: $s.name)
                                 Picker("", selection: $s.kind) { ForEach(StatusKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
                                     .labelsHidden().frame(width: 100)
+                                TextField("WIP", value: Binding(get: { s.wipLimit }, set: { s.wipLimit = ($0 ?? 0) > 0 ? $0 : nil }), format: .number)
+                                    .frame(width: 50).help("Work-in-progress limit: Board and List flag the status when it holds more open tasks")
                                 Menu("Color") { ForEach(paletteHexes, id: \.self) { h in Button(h) { s.colorHex = h } } }.fixedSize()
                                 Button { let id = s.id; DispatchQueue.main.async { store.data.spaces[i].statuses.removeAll { $0.id == id } } } label: { Image(systemName: "minus.circle") }
                                     .buttonStyle(.borderless).disabled(store.data.spaces[i].statuses.count <= 1)
@@ -546,6 +555,12 @@ struct SpaceSettingsView: View {
                                     TextField("Field name", text: $f.name)
                                     Picker("", selection: $f.type) { ForEach(FieldType.allCases) { Text($0.label).tag($0) } }
                                         .labelsHidden().frame(width: 170)
+                                    if !f.type.isComputed {
+                                        Toggle("Required", isOn: Binding(get: { f.required ?? false }, set: { f.required = $0 ? true : nil })).toggleStyle(.checkbox)
+                                            .help("Closing a task with this field empty asks first")
+                                    }
+                                    Toggle("Pinned", isOn: Binding(get: { f.pinned ?? false }, set: { f.pinned = $0 ? true : nil })).toggleStyle(.checkbox)
+                                        .help("Show on list rows and board cards")
                                     Button { let id = f.id; DispatchQueue.main.async { store.data.spaces[i].fields.removeAll { $0.id == id } } } label: { Image(systemName: "minus.circle") }
                                         .buttonStyle(.borderless)
                                 }
@@ -569,6 +584,7 @@ struct SpaceSettingsView: View {
                         }
                         Button("Add custom field") { store.data.spaces[i].fields.append(FieldDef(name: "New Field", type: .text)) }
                     }
+                    SpaceWorkSettings(index: i)
                 }
                 .formStyle(.grouped)
                 if !embedded {

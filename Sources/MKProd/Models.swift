@@ -26,6 +26,8 @@ struct StatusDef: Identifiable, Codable, Hashable {
     var name: String
     var colorHex: String
     var kind: StatusKind
+    /// Most open tasks this status should hold; Board and List flag it when exceeded.
+    var wipLimit: Int?
 
     static func defaults() -> [StatusDef] {
         [
@@ -62,6 +64,18 @@ struct FieldDef: Identifiable, Codable, Hashable {
     var name: String
     var type: FieldType
     var options: [String] = []
+    /// Closing a task with this field empty asks first.
+    var required: Bool?
+    /// Shown on list rows and board cards.
+    var pinned: Bool?
+}
+
+/// A kind of work a task can represent (Bug, Client, Event…); tasks without `typeId` are plain tasks.
+struct TaskTypeDef: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var name: String
+    var icon: String = "🧩"
+    var colorHex: String = "#7B68EE"
 }
 
 struct Space: Identifiable, Codable, Hashable {
@@ -72,6 +86,13 @@ struct Space: Identifiable, Codable, Hashable {
     var statuses: [StatusDef] = StatusDef.defaults()
     var fields: [FieldDef] = []
     var isPrivate = false
+    /// Task IDs: when set, tasks in this space show PREFIX-<number>.
+    var idPrefix: String?
+    var taskTypes: [TaskTypeDef]?
+    /// When a task's due date moves, move the tasks waiting on it by the same number of days.
+    var rescheduleDependencies: Bool?
+    /// When a task's due date moves, move its open subtasks too.
+    var remapSubtasks: Bool?
 }
 
 struct Folder: Identifiable, Codable, Hashable {
@@ -147,6 +168,20 @@ struct Comment: Identifiable, Codable, Hashable {
     var resolved = false
     /// An assigned comment is an action item for this person until resolved.
     var assigneeId: UUID?
+    /// Set on a reply: the comment it answers.
+    var parentId: UUID?
+    var reactions: [Reaction]?
+}
+
+struct Reaction: Codable, Hashable {
+    var emoji: String
+    var memberIds: [UUID]
+}
+
+/// The task entered `statusId` at `at` (one entry per status change, for time in status).
+struct StatusChange: Codable, Hashable {
+    var statusId: UUID
+    var at: Date
 }
 
 struct Attachment: Identifiable, Codable, Hashable {
@@ -201,6 +236,12 @@ struct TaskItem: Identifiable, Codable, Hashable {
     /// Planned dates saved from the Gantt ("Save baseline"), drawn under the live bars to show slippage.
     var baselineStart: Date?
     var baselineDue: Date?
+    /// Task type (Space.taskTypes) and number for the task ID (Space.idPrefix).
+    var typeId: UUID?
+    var number: Int?
+    /// Other lists the task also appears in; `listId` stays its home.
+    var extraListIds: [UUID]?
+    var statusLog: [StatusChange]?
 }
 
 // MARK: - Docs, whiteboards, chat
@@ -320,6 +361,48 @@ struct InboxItem: Identifiable, Codable, Hashable {
     var cleared = false
     /// Set by the website for non-task links ("order:<id>", "chat:<id>"); kept so it survives a Mac edit.
     var target: String?
+}
+
+// MARK: - Saved views
+
+/// Filters of a saved view. Same JSON as the website's ViewFilter.
+struct ViewFilter: Codable, Hashable {
+    var search: String = ""
+    var assigneeId: UUID?
+    var priority: Int?
+    var tag: String?
+    var typeId: String?
+    var showClosed = true
+    var onlyOverdue = false
+
+    init() {}
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        search = (try? c.decodeIfPresent(String.self, forKey: .search)) ?? ""
+        assigneeId = try? c.decodeIfPresent(UUID.self, forKey: .assigneeId)
+        priority = try? c.decodeIfPresent(Int.self, forKey: .priority)
+        tag = try? c.decodeIfPresent(String.self, forKey: .tag)
+        typeId = try? c.decodeIfPresent(String.self, forKey: .typeId)
+        showClosed = (try? c.decodeIfPresent(Bool.self, forKey: .showClosed)) ?? true
+        onlyOverdue = (try? c.decodeIfPresent(Bool.self, forKey: .onlyOverdue)) ?? false
+    }
+}
+
+/// A named view of one location ("everything", "mine", "space:<id>", "folder:<id>", "list:<id>"):
+/// view mode, grouping, sorting and filters. Shared ones sync as `views`, private ones as
+/// `privateViews` (encrypted with the person's own key). `mode`, `groupBy` and `sortBy` use the
+/// website's keys ("list", "mindmap", "due"…), mapped to the Mac enums in TaskContainerView.
+struct SavedView: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var name: String
+    var scope: String
+    var mode: String = "list"
+    var groupBy: String = "status"
+    var sortBy: String = "manual"
+    var filter = ViewFilter()
+    var ownerId: UUID
+    var isDefault = false
+    var order: Double = 0
 }
 
 // MARK: - Resource management
@@ -450,6 +533,8 @@ struct AppData: Codable {
     var templates: [TaskTemplate] = []
     var favorites: [UUID] = []
     var resources: [Resource] = []
+    var views: [SavedView] = []
+    var privateViews: [SavedView] = []
     // Budget & procurement
     var entities: [FinEntity] = []
     var budgets: [Budget] = []
@@ -478,6 +563,7 @@ struct AppData: Codable {
         messages = v(.messages, []); goals = v(.goals, []); timeEntries = v(.timeEntries, []); reminders = v(.reminders, [])
         inbox = v(.inbox, []); automations = v(.automations, []); dashboards = v(.dashboards, []); templates = v(.templates, [])
         favorites = v(.favorites, []); resources = v(.resources, [])
+        views = v(.views, []); privateViews = v(.privateViews, [])
         entities = v(.entities, []); budgets = v(.budgets, []); orders = v(.orders, []); savings = v(.savings, [])
         contracts = v(.contracts, []); catalog = v(.catalog, []); audit = v(.audit, [])
         financeSettings = v(.financeSettings, [FinanceSettings()])

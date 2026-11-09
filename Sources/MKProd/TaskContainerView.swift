@@ -2,8 +2,11 @@ import SwiftUI
 import AppKit
 
 enum ViewMode: String, CaseIterable, Identifiable {
-    case list = "List", board = "Board", calendar = "Calendar", gantt = "Gantt", table = "Table", chart = "Chart", workload = "Workload", mindmap = "Mind Map", form = "Form"
+    case list = "List", board = "Board", calendar = "Calendar", gantt = "Gantt", table = "Table", chart = "Chart", workload = "Workload", team = "Team", activity = "Activity", mindmap = "Mind Map", form = "Form"
     var id: String { rawValue }
+    /// The website's key for this mode, used by saved views ("mindmap", "list"…).
+    var key: String { rawValue.lowercased().replacingOccurrences(of: " ", with: "") }
+    init?(key: String) { guard let m = ViewMode.allCases.first(where: { $0.key == key }) else { return nil }; self = m }
     var icon: String {
         switch self {
         case .list: "list.bullet"
@@ -13,6 +16,8 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .table: "tablecells"
         case .chart: "chart.pie"
         case .workload: "person.3.sequence"
+        case .team: "person.2.crop.square.stack"
+        case .activity: "clock.arrow.circlepath"
         case .mindmap: "point.3.connected.trianglepath.dotted"
         case .form: "list.clipboard"
         }
@@ -20,13 +25,37 @@ enum ViewMode: String, CaseIterable, Identifiable {
 }
 
 enum GroupBy: String, CaseIterable, Identifiable {
-    case status = "Status", priority = "Priority", assignee = "Assignee", due = "Due date", list = "List", none = "None"
+    case status = "Status", priority = "Priority", assignee = "Assignee", type = "Task type", due = "Due date", list = "List", none = "None"
     var id: String { rawValue }
+    /// The website's key, used by saved views.
+    var key: String {
+        switch self {
+        case .status: "status"
+        case .priority: "priority"
+        case .assignee: "assignee"
+        case .type: "type"
+        case .due: "due"
+        case .list: "list"
+        case .none: "none"
+        }
+    }
+    init(key: String) { self = GroupBy.allCases.first { $0.key == key } ?? .status }
 }
 
 enum SortBy: String, CaseIterable, Identifiable {
     case manual = "Manual", due = "Due date", priority = "Priority", title = "Name", created = "Date created", updated = "Date updated"
     var id: String { rawValue }
+    var key: String {
+        switch self {
+        case .manual: "manual"
+        case .due: "due"
+        case .priority: "priority"
+        case .title: "title"
+        case .created: "created"
+        case .updated: "updated"
+        }
+    }
+    init(key: String) { self = SortBy.allCases.first { $0.key == key } ?? .manual }
 }
 
 struct TaskFilter {
@@ -34,6 +63,8 @@ struct TaskFilter {
     var assignee: UUID?
     var priority: Priority?
     var tag: String?
+    /// A task type id, or "task" for tasks without a type; matched by name across spaces.
+    var typeId: String?
     var showClosed = true
     var onlyOverdue = false
 }
@@ -46,6 +77,10 @@ struct TaskGroup: Identifiable {
     var priority: Priority?
     var assignee: UUID?
     var tasks: [TaskItem]
+    /// Work-in-progress limit of the status (status grouping only).
+    var wipLimit: Int?
+    /// Dropping a task here gives it this task type (nil name = plain task).
+    var typeName: String??
 }
 
 struct TaskContainerView: View {
@@ -56,9 +91,49 @@ struct TaskContainerView: View {
     @State private var sortBy: SortBy = .manual
     @State private var filter = TaskFilter()
     @State private var quickTitle = ""
+    @State private var activeView: UUID?
+    @State private var appliedDefault = false
     @FocusState private var quickFocused: Bool
 
     private var mode: ViewMode { ViewMode(rawValue: modeRaw) ?? .list }
+
+    /// Saved-view location key, same as the website's ("everything", "mine", "list:<ID>"…).
+    private var scopeKey: String {
+        switch location {
+        case .list(let id): "list:\(id.uuidString)"
+        case .folder(let id): "folder:\(id.uuidString)"
+        case .space(let id): "space:\(id.uuidString)"
+        case .myTasks: "mine"
+        default: "everything"
+        }
+    }
+
+    private func currentView() -> SavedView {
+        var f = ViewFilter()
+        f.search = filter.search
+        f.assigneeId = filter.assignee
+        f.priority = filter.priority?.rawValue
+        f.tag = filter.tag
+        f.typeId = filter.typeId
+        f.showClosed = filter.showClosed
+        f.onlyOverdue = filter.onlyOverdue
+        return SavedView(name: "", scope: scopeKey, mode: mode.key, groupBy: groupBy.key, sortBy: sortBy.key, filter: f, ownerId: store.data.currentUserId)
+    }
+
+    private func applyView(_ v: SavedView) {
+        if let m = ViewMode(key: v.mode) { modeRaw = m.rawValue }
+        groupBy = GroupBy(key: v.groupBy)
+        sortBy = SortBy(key: v.sortBy)
+        var f = TaskFilter()
+        f.search = v.filter.search
+        f.assignee = v.filter.assigneeId
+        f.priority = v.filter.priority.flatMap(Priority.init(rawValue:))
+        f.tag = v.filter.tag
+        f.typeId = v.filter.typeId
+        f.showClosed = v.filter.showClosed
+        f.onlyOverdue = v.filter.onlyOverdue
+        filter = f
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -73,6 +148,12 @@ struct TaskContainerView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle(store.title(for: location))
+        .onAppear {
+            store.assignTaskNumbers()
+            if !appliedDefault, let d = store.defaultView(for: scopeKey) { activeView = d.id; applyView(d) }
+            appliedDefault = true
+        }
+        .onChange(of: store.data.tasks.count) { store.assignTaskNumbers() }
         .onReceive(NotificationCenter.default.publisher(for: .newTask)) { _ in quickFocused = true }
     }
 
@@ -81,6 +162,10 @@ struct TaskContainerView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             breadcrumb
+            SavedViewsBar(scope: scopeKey, active: $activeView, current: currentView, apply: applyView, reset: {
+                activeView = nil; groupBy = .status; sortBy = .manual; filter = TaskFilter()
+            })
+            .padding(.horizontal, -16)
             Picker("View", selection: $modeRaw) {
                 ForEach(ViewMode.allCases) { m in Label(m.rawValue, systemImage: m.icon).tag(m.rawValue) }
             }
@@ -140,6 +225,13 @@ struct TaskContainerView: View {
                     Text("Any").tag(String?.none)
                     ForEach(allTags, id: \.self) { Text($0).tag(Optional($0)) }
                 }
+                if !allTypes.isEmpty {
+                    Picker("Task type", selection: $filter.typeId) {
+                        Text("Any").tag(String?.none)
+                        Text("✓ Task").tag(Optional("task"))
+                        ForEach(allTypes) { Text("\($0.icon) \($0.name)").tag(Optional($0.id.uuidString)) }
+                    }
+                }
                 Divider()
                 Toggle("Show closed", isOn: $filter.showClosed)
                 Toggle("Only overdue", isOn: $filter.onlyOverdue)
@@ -159,10 +251,25 @@ struct TaskContainerView: View {
     }
 
     private var activeFilterCount: Int {
-        [filter.assignee != nil, filter.priority != nil, filter.tag != nil, !filter.showClosed, filter.onlyOverdue].filter { $0 }.count
+        [filter.assignee != nil, filter.priority != nil, filter.tag != nil, filter.typeId != nil, !filter.showClosed, filter.onlyOverdue].filter { $0 }.count
     }
 
     private var allTags: [String] { Array(Set(store.data.tasks.flatMap(\.tags))).sorted() }
+
+    /// Task types of the spaces in view, once per name.
+    private var allTypes: [TaskTypeDef] {
+        var seen: Set<String> = []
+        return spacesInView.flatMap { $0.taskTypes ?? [] }.filter { seen.insert($0.name).inserted }
+    }
+
+    private var spacesInView: [Space] {
+        switch location {
+        case .list(let id): store.space(ofList: id).map { [$0] } ?? []
+        case .folder(let id): store.space(store.folder(id)?.spaceId).map { [$0] } ?? []
+        case .space(let id): store.space(id).map { [$0] } ?? []
+        default: store.data.spaces
+        }
+    }
 
     // MARK: Content
 
@@ -177,6 +284,8 @@ struct TaskContainerView: View {
         case .table: TaskTableView(tasks: tasks, fields: fields)
         case .chart: TaskChartView(tasks: tasks)
         case .workload: WorkloadView(tasks: tasks)
+        case .team: TeamModeView(tasks: tasks)
+        case .activity: ActivityModeView(tasks: tasks)
         case .mindmap: MindMapView(location: location, tasks: tasks)
         case .form: TaskFormView(defaultList: defaultListId)
         }
@@ -211,7 +320,11 @@ struct TaskContainerView: View {
     private var filtered: [TaskItem] {
         var ts = store.tasks(for: location)
         let q = filter.search.trimmingCharacters(in: .whitespaces)
-        if !q.isEmpty { ts = ts.filter { $0.title.localizedCaseInsensitiveContains(q) || $0.tags.contains { $0.localizedCaseInsensitiveContains(q) } } }
+        if !q.isEmpty { ts = ts.filter { $0.title.localizedCaseInsensitiveContains(q) || $0.tags.contains { $0.localizedCaseInsensitiveContains(q) } || (store.taskKey($0)?.localizedCaseInsensitiveContains(q) ?? false) } }
+        if let ty = filter.typeId {
+            let name = store.data.spaces.flatMap { $0.taskTypes ?? [] }.first { $0.id.uuidString == ty }?.name
+            ts = ts.filter { ty == "task" ? store.taskType($0) == nil : store.taskType($0)?.name == name }
+        }
         if let a = filter.assignee { ts = ts.filter { $0.assigneeIds.contains(a) } }
         if let p = filter.priority { ts = ts.filter { $0.priority == p } }
         if let tag = filter.tag { ts = ts.filter { $0.tags.contains(tag) } }
@@ -246,8 +359,15 @@ struct TaskContainerView: View {
                 let ts = tasks.filter { store.status(of: $0)?.name == s.name }
                 if ts.isEmpty && spaces.count > 1 { return nil }
                 if !filter.showClosed && (s.kind == .done || s.kind == .closed) { return nil }
-                return TaskGroup(id: s.name, title: s.name, color: Color(hex: s.colorHex), statusId: spaces.count == 1 ? s.id : nil, tasks: ts)
+                let limit = spaces.flatMap(\.statuses).filter { $0.name == s.name }.compactMap(\.wipLimit).min()
+                return TaskGroup(id: s.name, title: s.name, color: Color(hex: s.colorHex), statusId: spaces.count == 1 ? s.id : nil, tasks: ts, wipLimit: limit)
             }
+        case .type:
+            var out = [TaskGroup(id: "type:task", title: "✓ Task", color: .gray, tasks: tasks.filter { store.taskType($0) == nil }, typeName: .some(nil))]
+            for ty in allTypes {
+                out.append(TaskGroup(id: "type:" + ty.name, title: "\(ty.icon) \(ty.name)", color: Color(hex: ty.colorHex), tasks: tasks.filter { store.taskType($0)?.name == ty.name }, typeName: .some(ty.name)))
+            }
+            return out
         case .priority:
             return Priority.allCases.reversed().map { p in
                 TaskGroup(id: p.label, title: p.label, color: p.color, priority: p, tasks: tasks.filter { $0.priority == p })
@@ -366,7 +486,7 @@ struct TaskListView: View {
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(g.color, in: RoundedRectangle(cornerRadius: 4))
                     .foregroundStyle(.white)
-                Text("\(g.tasks.count)").foregroundStyle(.secondary).font(.caption)
+                WipCount(group: g)
                 Spacer()
             }
             .padding(.bottom, 6)
@@ -408,6 +528,25 @@ struct TaskListView: View {
             if let s = g.statusId { t.statusId = s }
             if let p = g.priority { t.priority = p }
             if let a = g.assignee, !t.assigneeIds.contains(a) { t.assigneeIds.append(a) }
+            if let name = g.typeName { t.typeId = store.space(ofTask: t)?.taskTypes?.first { $0.name == name }?.id }
+        }
+    }
+}
+
+/// "3" or, with a work-in-progress limit, "3 / 2 · over limit" in red. Closed tasks don't count.
+struct WipCount: View {
+    let group: TaskGroup
+    @Environment(Store.self) private var store
+
+    var body: some View {
+        let open = group.tasks.filter { !store.isClosed($0) }.count
+        if let limit = group.wipLimit {
+            Text(open > limit ? "\(open) / \(limit) · over limit" : "\(open) / \(limit)")
+                .font(.caption.weight(open > limit ? .bold : .regular))
+                .foregroundStyle(open > limit ? Color.red : Color.secondary)
+                .help("Work-in-progress limit \(limit)")
+        } else {
+            Text("\(group.tasks.count)").foregroundStyle(.secondary).font(.caption)
         }
     }
 }
@@ -457,6 +596,8 @@ struct TaskRow: View {
 
             HStack(spacing: 6) {
                 if task.isMilestone { Image(systemName: "diamond.fill").foregroundStyle(.purple).font(.caption) }
+                TypeBadge(task: task)
+                TaskKeyChip(task: task)
                 Text(task.title)
                     .strikethrough(closed)
                     .foregroundStyle(closed ? .secondary : .primary)
@@ -475,6 +616,10 @@ struct TaskRow: View {
                 }
                 if task.recurrence != .none { Image(systemName: "repeat").font(.caption).foregroundStyle(.secondary) }
                 ForEach(task.tags.prefix(3), id: \.self) { TagChip(tag: $0) }
+                if (task.extraListIds?.count ?? 0) > 0 {
+                    Label("\((task.extraListIds?.count ?? 0) + 1)", systemImage: "square.on.square").font(.caption).foregroundStyle(.secondary).help("Also in other lists")
+                }
+                PinnedFieldChips(task: task)
                 if hovering {
                     StatusMenu(task: task)
                 }
@@ -570,7 +715,7 @@ struct BoardView: View {
             HStack {
                 Circle().fill(g.color).frame(width: 9, height: 9)
                 Text(g.title.uppercased()).font(.system(size: 11, weight: .bold))
-                Text("\(g.tasks.count)").font(.caption).foregroundStyle(.secondary)
+                WipCount(group: g)
                 Spacer()
             }
             .padding(.horizontal, 6).padding(.top, 4)
@@ -590,6 +735,11 @@ struct BoardView: View {
                 .fill(g.color.opacity(targeted == g.id ? 0.18 : 0.06))
         )
         .overlay(alignment: .top) { Rectangle().fill(g.color).frame(height: 3).clipShape(RoundedRectangle(cornerRadius: 2)) }
+        .overlay {
+            if let limit = g.wipLimit, g.tasks.filter({ !store.isClosed($0) }).count > limit {
+                RoundedRectangle(cornerRadius: 10).stroke(Color.red.opacity(0.55), lineWidth: 1.5)
+            }
+        }
         .dropDestination(for: String.self) { items, _ in
             for s in items {
                 guard let id = UUID(uuidString: s) else { continue }
@@ -598,6 +748,7 @@ struct BoardView: View {
                     else if let st = store.statuses(for: t).first(where: { $0.name == g.title }) { t.statusId = st.id }
                     if let p = g.priority { t.priority = p }
                     if let a = g.assignee { t.assigneeIds = [a] }
+                    if let name = g.typeName { t.typeId = store.space(ofTask: t)?.taskTypes?.first { $0.name == name }?.id }
                 }
             }
             return true
@@ -613,10 +764,14 @@ struct BoardCard: View {
         let (done, total) = store.checklistProgress(task)
         let subs = store.subtasks(of: task.id)
         VStack(alignment: .leading, spacing: 8) {
-            Text(store.list(task.listId)?.name ?? "").font(.caption2).foregroundStyle(.tertiary)
+            HStack(spacing: 4) {
+                TypeBadge(task: task)
+                TaskKeyChip(task: task)
+                Text(store.list(task.listId)?.name ?? "").font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+            }
             Text(task.title).font(.callout.weight(.medium)).strikethrough(store.isClosed(task)).lineLimit(3)
-            if !task.tags.isEmpty {
-                HStack(spacing: 4) { ForEach(task.tags.prefix(3), id: \.self) { TagChip(tag: $0) } }
+            if !task.tags.isEmpty || (store.space(ofTask: task)?.fields.contains { $0.pinned ?? false } ?? false) {
+                HStack(spacing: 4) { ForEach(task.tags.prefix(3), id: \.self) { TagChip(tag: $0) }; PinnedFieldChips(task: task) }
             }
             HStack(spacing: 8) {
                 AssigneeMenu(task: task)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ID, defaultFinanceSettings, newList, newSpace, uid, PALETTE } from './model';
+import { ID, defaultFinanceSettings, newList, newSpace, newTask, uid, PALETTE } from './model';
 import { ApiError, Session, SessionUser, SyncEngine, WorkspaceInfo, api, idbClear, idbGet, idbSet } from './sync';
 import { Bytes, newKeyPair, newRecoveryCode, passwordKeys, recoveryKeys, sealScalar, unlockKeyPair, open as openSealed } from './crypto';
 import { Finance } from './finance';
@@ -9,6 +9,8 @@ import { HomePage, InboxPage, TaskDrawer, TasksPage, deleteFolder, deleteList, d
 import { ChatPage, GoalsPage, TeamPage, TimesheetPage, TrashPage } from './pages/Workspace';
 import { WhiteboardsPage } from './pages/Whiteboards';
 import { DirectoryPage, FieldsEditor, PortfolioPage, ResourcesPage } from './pages/Advanced';
+import { SpaceSettings } from './pages/Work';
+import { findByKey, taskKey } from './work';
 import {
   AuditPage, BudgetsPage, CatalogPage, ContractsPage, FinanceSettingsPage,
   OrdersPage, ReportsPage, SavingsPage,
@@ -397,6 +399,8 @@ function Shell({ children, onSwitch, onSwitchTo, onSignOut }: { children: React.
   const [wsMenu, setWsMenu] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: { label: string; danger?: boolean; act: () => void }[] } | null>(null);
   const [fieldsFor, setFieldsFor] = useState<ID | null>(null);
+  const [settingsFor, setSettingsFor] = useState<ID | null>(null);
+  const [shortcuts, setShortcuts] = useState(false);
   useEffect(() => { api<{ workspaces: WorkspaceInfo[] }>('/api/me').then((r) => setWorkspaces(r.workspaces)).catch(() => {}); }, []);
   useEffect(() => {
     if (!menu && !wsMenu) return;
@@ -414,6 +418,7 @@ function Shell({ children, onSwitch, onSwitchTo, onSignOut }: { children: React.
   const spaceMenu = (s: { id: ID; name: string }) => [
     { label: 'Rename space', act: () => rename('space', s.name, (v) => engine.update('spaces', s.id, (x) => { x.name = v; })) },
     { label: 'New list', act: () => addList(s.id) },
+    { label: 'Space settings…', act: () => setSettingsFor(s.id) },
     { label: 'Custom fields…', act: () => setFieldsFor(s.id) },
     { label: 'Delete space…', danger: true, act: () => {
       const n = engine.list('lists').filter((l) => l.spaceId === s.id).reduce((a, l) => a + engine.list('tasks').filter((t) => t.listId === l.id).length, 0);
@@ -442,9 +447,15 @@ function Shell({ children, onSwitch, onSwitchTo, onSignOut }: { children: React.
     </div>
   );
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch(true); } };
+    const k = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearch(true); return; }
+      const el = e.target as HTMLElement;
+      if (e.key === '?' && !/INPUT|TEXTAREA|SELECT/.test(el.tagName) && !el.isContentEditable) { e.preventDefault(); setShortcuts(true); }
+    };
+    const open = () => setShortcuts(true);
     window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
+    window.addEventListener('mkprod:shortcuts', open);
+    return () => { window.removeEventListener('keydown', k); window.removeEventListener('mkprod:shortcuts', open); };
   }, []);
   const unread = engine.inbox.filter((n) => !n.read).length;
   const approvals = engine.list('orders').filter((o) => fin.canApprove(o)).length;
@@ -560,6 +571,8 @@ function Shell({ children, onSwitch, onSwitchTo, onSignOut }: { children: React.
         )}
         <div className="page">{children}</div>
       </main>
+      {settingsFor && <SpaceSettings spaceId={settingsFor} onClose={() => setSettingsFor(null)} />}
+      {shortcuts && <ShortcutsModal onClose={() => setShortcuts(false)} />}
       {fieldsFor && engine.get('spaces', fieldsFor) && <FieldsEditor space={engine.get('spaces', fieldsFor)!} onClose={() => setFieldsFor(null)} />}
       {search && <SearchModal onClose={() => setSearch(false)} onTask={(id) => { setSearch(false); openTask(id); }} />}
       {menu && (
@@ -583,22 +596,69 @@ function title(route: string, engine: SyncEngine) {
     savings: 'Savings', reports: 'Reports', audit: 'Audit log', fsettings: 'Finance settings', apps: 'Get the apps' } as Record<string, string>)[p] ?? 'MK Prod';
 }
 
+/** ⌘K: jump anywhere, find tasks (also by ID, e.g. ENG-42), and run commands. ↑↓ to choose, Enter to open. */
 function SearchModal({ onClose, onTask }: { onClose: () => void; onTask: (id: ID) => void }) {
-  const { engine, go } = useApp();
+  const { engine, go, route } = useApp();
   const [q, setQ] = useState('');
-  const s = q.toLowerCase();
-  const hits = !s ? [] : [
-    ...engine.list('tasks').filter((t) => !t.archived && (t.title + ' ' + t.details).toLowerCase().includes(s)).slice(0, 12).map((t) => ({ k: t.id, icon: '✓', label: t.title, act: () => onTask(t.id) })),
-    ...engine.list('whiteboards').filter((w) => w.name.toLowerCase().includes(s)).slice(0, 4).map((w) => ({ k: w.id, icon: '🧩', label: w.name, act: () => { go('whiteboards/' + w.id); onClose(); } })),
-    ...engine.list('orders').filter((o) => `${o.title} ${o.supplier} ${o.poNumber} ${o.number}`.toLowerCase().includes(s)).slice(0, 6).map((o) => ({ k: o.id, icon: '📦', label: `#${o.number} ${o.title}`, act: () => { go('orders/' + o.id); onClose(); } })),
-    ...engine.list('contracts').filter((c) => `${c.title} ${c.supplier}`.toLowerCase().includes(s)).slice(0, 4).map((c) => ({ k: c.id, icon: '📄', label: c.title, act: () => { go('contracts'); onClose(); } })),
-    ...engine.list('lists').filter((l) => l.name.toLowerCase().includes(s)).slice(0, 4).map((l) => ({ k: l.id, icon: '☰', label: l.name, act: () => { go('list/' + l.id); onClose(); } })),
+  const [sel, setSel] = useState(0);
+  const s = q.trim().toLowerCase();
+  const to = (r: string) => () => { go(r); onClose(); };
+  const pages: [string, string, string][] = [
+    ['home', '🏠', 'Home'], ['inbox', '📥', 'Inbox'], ['mine', '👤', 'My Tasks'], ['everything', '🗂', 'Everything'], ['whiteboards', '🧩', 'Whiteboards'],
+    ['chat', '💬', 'Chat'], ['goals', '🎯', 'Goals'], ['portfolio', '🗂', 'Portfolio'], ['resources', '📅', 'Resources'], ['time', '⏱', 'Timesheets'],
+    ['directory', '📚', 'Content directory'], ['trash', '🗑', 'Trash'], ['budgets', '💰', 'Budgets'], ['orders', '📦', 'Orders & expenses'],
+    ['approvals', '✅', 'My approvals'], ['catalog', '🛒', 'Shopping catalog'], ['contracts', '📄', 'Contracts'], ['reports', '📑', 'Reports'], ['team', '👥', 'Team & account'],
   ];
+  const listHere = route.startsWith('list/') ? route.slice(5) : engine.list('lists').find((l) => !l.archived)?.id;
+  const commands = [
+    ...(engine.canWrite && listHere ? [{ k: 'cmd-new', icon: '＋', label: `New task in ${engine.get('lists', listHere)?.name ?? 'list'}`, hint: 'n', act: () => {
+      const title = prompt('Task name')?.trim();
+      const list = engine.get('lists', listHere);
+      const st = engine.get('spaces', list?.spaceId)?.statuses[0];
+      if (title && list && st) { const t = newTask(list.id, title, st.id, engine.members.find((m) => m.id === engine.me)); engine.put('tasks', t); onTask(t.id); } else onClose();
+    } }] : []),
+    { k: 'cmd-shortcuts', icon: '⌨️', label: 'Keyboard shortcuts', hint: '?', act: () => { onClose(); window.dispatchEvent(new CustomEvent('mkprod:shortcuts')); } },
+  ];
+  const byKey = s ? findByKey(engine, s) : undefined;
+  const hits = !s
+    ? [...commands, ...pages.slice(0, 6).map(([r, icon, label]) => ({ k: r, icon, label, hint: 'Go to', act: to(r) }))]
+    : [
+      ...(byKey ? [{ k: 'key' + byKey.id, icon: '#', label: `${q.toUpperCase()} · ${byKey.title}`, hint: 'Task ID', act: () => onTask(byKey.id) }] : []),
+      ...engine.list('tasks').filter((t) => !t.archived && t.id !== byKey?.id && (t.title + ' ' + t.details).toLowerCase().includes(s)).slice(0, 10)
+        .map((t) => ({ k: t.id, icon: '✓', label: t.title, hint: [taskKey(engine, t), engine.get('lists', t.listId)?.name].filter(Boolean).join(' · '), act: () => onTask(t.id) })),
+      ...commands.filter((c) => c.label.toLowerCase().includes(s)),
+      ...pages.filter(([, , label]) => label.toLowerCase().includes(s)).map(([r, icon, label]) => ({ k: r, icon, label, hint: 'Go to', act: to(r) })),
+      ...engine.list('lists').filter((l) => l.name.toLowerCase().includes(s)).slice(0, 4).map((l) => ({ k: l.id, icon: '☰', label: l.name, hint: engine.get('spaces', l.spaceId)?.name ?? 'List', act: to('list/' + l.id) })),
+      ...engine.list('spaces').filter((x) => x.name.toLowerCase().includes(s)).slice(0, 3).map((x) => ({ k: x.id, icon: '🟪', label: x.name, hint: 'Space', act: to('space/' + x.id) })),
+      ...engine.list('whiteboards').filter((w) => w.name.toLowerCase().includes(s)).slice(0, 4).map((w) => ({ k: w.id, icon: '🧩', label: w.name, hint: 'Whiteboard', act: to('whiteboards/' + w.id) })),
+      ...engine.list('orders').filter((o) => `${o.title} ${o.supplier} ${o.poNumber} ${o.number}`.toLowerCase().includes(s)).slice(0, 6).map((o) => ({ k: o.id, icon: '📦', label: `#${o.number} ${o.title}`, hint: 'Order', act: to('orders/' + o.id) })),
+      ...engine.list('contracts').filter((c) => `${c.title} ${c.supplier}`.toLowerCase().includes(s)).slice(0, 4).map((c) => ({ k: c.id, icon: '📄', label: c.title, hint: 'Contract', act: to('contracts') })),
+    ];
+  const cur = Math.min(sel, Math.max(hits.length - 1, 0));
   return (
-    <Modal title="Search" onClose={onClose}>
-      <input className="input" autoFocus placeholder="Tasks, docs, orders, contracts, lists…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && hits[0]?.act()} />
-      {hits.map((h) => <div key={h.k} className="nav" onClick={h.act}><span className="ic">{h.icon}</span>{h.label}</div>)}
+    <Modal title="Search & commands" onClose={onClose}>
+      <div className="search-box big"><span>🔍</span><input className="plain grow" autoFocus placeholder="Search tasks, IDs (ENG-42), lists, pages, orders… or a command" value={q}
+        onChange={(e) => { setQ(e.target.value); setSel(0); }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setSel((x) => Math.min(x + 1, hits.length - 1)); }
+          if (e.key === 'ArrowUp') { e.preventDefault(); setSel((x) => Math.max(x - 1, 0)); }
+          if (e.key === 'Enter') hits[cur]?.act();
+        }} /></div>
+      {!s && <div className="small faint" style={{ margin: '8px 4px 2px' }}>Suggestions</div>}
+      <div className="cmd-list">{hits.map((h, i) => (
+        <div key={h.k} className={`cmd ${i === cur ? 'on' : ''}`} onMouseEnter={() => setSel(i)} onClick={h.act}><span className="ic">{h.icon}</span><span className="grow ellipsis">{h.label}</span>{h.hint && <span className="small faint">{h.hint}</span>}</div>
+      ))}</div>
       {s && !hits.length && <p className="muted">No matches.</p>}
+    </Modal>
+  );
+}
+
+/** "?" anywhere: the keyboard shortcuts. */
+function ShortcutsModal({ onClose }: { onClose: () => void }) {
+  const rows: [string, string][] = [['⌘K / Ctrl K', 'Search and commands'], ['n', 'New task (in a task view)'], ['/', 'Search the tasks in view'], ['?', 'This list'], ['Esc', 'Close a panel or dialog'], ['⌘↵ / Ctrl ↵', 'Send a comment or reply']];
+  return (
+    <Modal title="Keyboard shortcuts" onClose={onClose}>
+      <table className="t"><tbody>{rows.map(([k, v]) => <tr key={k}><td style={{ width: 150 }}><kbd>{k}</kbd></td><td>{v}</td></tr>)}</tbody></table>
     </Modal>
   );
 }
