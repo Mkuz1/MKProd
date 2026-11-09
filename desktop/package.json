@@ -1,7 +1,7 @@
 {
   "name": "mkprod-desktop",
   "productName": "MK Prod",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "MK Prod for Windows: the team workspace in its own window.",
   "author": "MK Prod",
   "private": true,
