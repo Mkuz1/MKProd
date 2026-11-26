@@ -1,6 +1,6 @@
 # MK Prod cloud: website + team sync on Cloudflare (free)
 
-**Live:** https://mkprod.mohamd-beam.workers.dev. Put this address in the Mac app under Settings → Cloud & Team → Server address.
+**Live:** https://mkprod.mk-uz02.workers.dev. Put this address in the Mac app under Settings → Cloud & Team → Server address.
 
 One Cloudflare Worker provides everything:
 

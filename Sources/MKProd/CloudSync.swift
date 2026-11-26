@@ -97,7 +97,7 @@ final class CloudSync {
         loadState()
     }
 
-    static let defaultServer = "https://mkprod.mohamd-beam.workers.dev"
+    static let defaultServer = "https://mkprod.mk-uz02.workers.dev"
 
     /// Last time something changed here or arrived from a teammate; drives the polling cadence.
     private var lastActivity = Date()

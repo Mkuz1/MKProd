@@ -1,11 +1,11 @@
 // MK Prod for Windows: a thin, locked-down window around the web app. All features live on
-// the site (https://mkprod.mohamd-beam.workers.dev); this shell adds its own window, Start-menu
+// the site (https://mkprod.mk-uz02.workers.dev); this shell adds its own window, Start-menu
 // entry, taskbar icon and desktop notifications. It has no access to the file system beyond
 // what a browser has: the page runs sandboxed with Node integration off.
 const { app, BrowserWindow, shell, Menu, session } = require('electron');
 const path = require('path');
 
-const APP_URL = process.env.MKPROD_URL || 'https://mkprod.mohamd-beam.workers.dev/';
+const APP_URL = process.env.MKPROD_URL || 'https://mkprod.mk-uz02.workers.dev/';
 const ORIGIN = new URL(APP_URL).origin;
 
 app.setAppUserModelId('com.mkoussa.mkprod'); // Windows notifications show "MK Prod", not "electron"

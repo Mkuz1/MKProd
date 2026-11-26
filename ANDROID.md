@@ -13,7 +13,7 @@ Mac/Windows apps and is always current. Android 7.0 and newer: phones, tablets a
 - Google Play Protect may warn about an app from outside the store: **More details → Install
   anyway**. (Publishing on Google Play removes that step; it needs a developer account, $25 once.)
 
-Alternative without any download: open https://mkprod.mohamd-beam.workers.dev in Chrome and tap
+Alternative without any download: open https://mkprod.mk-uz02.workers.dev in Chrome and tap
 **Install as an app** at the bottom of the menu. That gives the same app as a Chrome-managed
 install, updated automatically.
 

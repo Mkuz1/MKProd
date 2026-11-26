@@ -10,7 +10,7 @@ decides which route works for you.
 
 ### 1. Today, no account: Add to Home Screen
 
-On the iPhone or iPad, open **https://mkprod.mohamd-beam.workers.dev** in **Safari** →
+On the iPhone or iPad, open **https://mkprod.mk-uz02.workers.dev** in **Safari** →
 **Share** → **Add to Home Screen**. It gets the MK Prod icon, opens full screen without browser
 bars, keeps you signed in, and updates itself ("Update now" bar). Everything works, including
 file attachments and Excel exports.

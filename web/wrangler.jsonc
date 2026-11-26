@@ -14,7 +14,7 @@
     {
       "binding": "DB",
       "database_name": "mkprod",
-      "database_id": "7f1c1e87-1d59-4b8e-8106-e8256d8aa7a7",
+      "database_id": "4b53f53d-2a3f-463d-b17b-208ffb197e37",
       "migrations_dir": "./migrations"
     }
   ],

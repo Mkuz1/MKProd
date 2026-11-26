@@ -31,7 +31,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="mkprod.mohamd-beam.workers.dev" />
+                <data android:scheme="https" android:host="mkprod.mk-uz02.workers.dev" />
             </intent-filter>
         </activity>
 
