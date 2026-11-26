@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>MK Prod · Encrypted workspace for tasks, budgets and purchase orders</title>
+  <meta name="description" content="Plan projects, approve purchase orders, track budgets and contracts in one workspace that is encrypted on your device. For Mac, Windows, iPhone, Android and the web." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="canonical" href="https://mkprod-landing.pages.dev/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MK Prod" />
+  <meta property="og:title" content="MK Prod · Plan the work. Approve the spend. Keep both private." />
+  <meta property="og:description" content="Tasks, budgets, purchase orders and contracts in one end to end encrypted workspace. Mac, Windows, iPhone, Android and web." />
+  <meta property="og:url" content="https://mkprod-landing.pages.dev/" />
+  <meta property="og:image" content="https://mkprod-landing.pages.dev/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="MK Prod: plan the work, approve the spend, keep both private." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="MK Prod · Plan the work. Approve the spend. Keep both private." />
+  <meta name="twitter:description" content="Tasks, budgets, purchase orders and contracts in one end to end encrypted workspace." />
+  <meta name="twitter:image" content="https://mkprod-landing.pages.dev/og.png" />
+
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/main.js" defer></script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "MK Prod",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "macOS, Windows, Android, iOS, Web",
+        "softwareVersion": "1.5.0",
+        "description": "Team workspace for tasks, budgets, purchase orders and contracts, end to end encrypted.",
+        "url": "https://mkprod.mohamd-beam.workers.dev"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "Who is MK Prod for?", "acceptedAnswer": { "@type": "Answer", "text": "Teams that run projects and purchasing together: operations, production, events and office teams who plan tasks, buy what those tasks need and answer for the budget." } },
+          { "@type": "Question", "name": "Can MK Prod read my workspace?", "acceptedAnswer": { "@type": "Answer", "text": "No. Tasks, docs, chat, budgets, orders and contracts are encrypted with AES 256 GCM on your device before they sync. The server and the Cloudflare account it runs on only ever store ciphertext." } },
+          { "@type": "Question", "name": "What can the server still see?", "acceptedAnswer": { "@type": "Answer", "text": "Account names and email addresses, workspace names, member roles, device labels, record sizes and when records change. The content of your work stays encrypted." } },
+          { "@type": "Question", "name": "What happens if I forget my password?", "acceptedAnswer": { "@type": "Answer", "text": "Use the recovery code you saved at sign up. It resets your password and keeps access to all encrypted data. An admin can also reset your password; teammates then share the workspace key with you again." } },
+          { "@type": "Question", "name": "Which devices does MK Prod run on?", "acceptedAnswer": { "@type": "Answer", "text": "A native Mac app for macOS 14 and later, a Windows app that installs without admin rights, an Android app for Android 7 and later including foldables, iPhone and iPad, and any modern browser." } },
+          { "@type": "Question", "name": "Does it work offline?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The Mac app keeps a full local copy and the website keeps an encrypted offline cache. Changes sync when you reconnect, and simultaneous edits merge field by field." } },
+          { "@type": "Question", "name": "How do suppliers respond to an order?", "acceptedAnswer": { "@type": "Answer", "text": "Share an order as a supplier link. The supplier opens it without an account and can confirm, decline or ask a question. Links are encrypted, expire after 7 to 90 days and can be revoked." } },
+          { "@type": "Question", "name": "Can I bring my data in and take it out?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Import tasks from CSV and budgets, catalog items and contracts from an Excel template. Export to CSV, Excel or a full JSON backup whenever you like." } }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link button-sm" href="#main">Skip to content</a>
+
+  <header class="nav-wrap">
+    <nav class="nav" aria-label="Main">
+      <a class="nav-brand title-3" href="/" aria-label="MK Prod home">
+        <img src="/favicon.svg" alt="" width="24" height="24" />
+        <span>MK Prod</span>
+      </a>
+      <ul class="nav-links" role="list">
+        <li><a class="title-4" href="#features">Features</a></li>
+        <li><a class="title-4" href="#security">Security</a></li>
+        <li><a class="title-4" href="#download">Download</a></li>
+        <li><a class="title-4" href="#faq">FAQ</a></li>
+      </ul>
+      <a class="btn btn-primary btn-sm button-sm nav-cta" href="https://mkprod.mohamd-beam.workers.dev">Open MK Prod</a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
+        <span class="menu-line"></span>
+        <span class="menu-line"></span>
+      </button>
+    </nav>
+  </header>
+
+  <div class="mobile-menu" id="mobile-menu" hidden>
+    <ul role="list">
+      <li><a class="heading-4" href="#features">Features</a></li>
+      <li><a class="heading-4" href="#security">Security</a></li>
+      <li><a class="heading-4" href="#download">Download</a></li>
+      <li><a class="heading-4" href="#faq">FAQ</a></li>
+      <li><a class="btn btn-primary button-md" href="https://mkprod.mohamd-beam.workers.dev">Create your workspace</a></li>
+    </ul>
+  </div>
+
+  <main id="main">
+    <!-- 1. HERO -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container hero-inner">
+        <a class="pill caption-1" href="#download">
+          <span class="pill-dot" aria-hidden="true"></span>
+          Version 1.5.0 is out on every platform
+          <i class="ph ph-arrow-right" aria-hidden="true"></i>
+        </a>
+        <h1 id="hero-title" class="heading-1 hero-title">
+          Plan the work.<br />
+          Approve the spend.<br />
+          Keep both private.
+        </h1>
+        <p class="hero-sub body-7">
+          MK Prod puts tasks, budgets, purchase orders and contracts in one workspace
+          that is encrypted on your device before it ever syncs.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg button-md" href="https://mkprod.mohamd-beam.workers.dev">
+            Create your workspace
+            <i class="ph ph-arrow-right" aria-hidden="true"></i>
+          </a>
+        </div>
+        <ul class="proof-line caption-2" role="list">
+          <li><i class="ph ph-lock-simple" aria-hidden="true"></i>AES 256 encryption on your device</li>
+          <li><i class="ph ph-devices" aria-hidden="true"></i>Mac, Windows, iPhone, Android, web</li>
+          <li><i class="ph ph-export" aria-hidden="true"></i>Export everything, anytime</li>
+        </ul>
+      </div>
+
+      <!-- Product visual -->
+      <div class="container">
+        <figure class="mock reveal" aria-label="MK Prod board view with an order waiting for approval">
+          <div class="mock-window">
+            <div class="mock-bar" aria-hidden="true">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <span class="mock-path caption-5">Operations <i class="ph ph-caret-right"></i> Winter showcase</span>
+            </div>
+            <div class="mock-app" aria-hidden="true">
+              <aside class="mock-side">
+                <div class="mock-ws title-5"><img src="/favicon.svg" alt="" width="20" height="20" />Northlight Studio</div>
+                <ul role="list" class="caption-4">
+                  <li><i class="ph ph-house"></i>Home</li>
+                  <li><i class="ph ph-tray"></i>Inbox<span class="count caption-3">3</span></li>
+                  <li><i class="ph ph-check-square"></i>My work</li>
+                  <li class="side-label caption-5">Spaces</li>
+                  <li class="active"><span class="sq" style="--c:#7B68EE"></span>Operations</li>
+                  <li><span class="sq" style="--c:#2FA86C"></span>Procurement</li>
+                  <li><span class="sq" style="--c:#E8912D"></span>Events</li>
+                  <li class="side-label caption-5">Finance</li>
+                  <li><i class="ph ph-wallet"></i>Budgets</li>
+                  <li><i class="ph ph-receipt"></i>Orders</li>
+                  <li><i class="ph ph-file-text"></i>Contracts</li>
+                </ul>
+              </aside>
+              <div class="mock-main">
+                <div class="mock-tabs caption-4">
+                  <span>List</span><span class="on">Board</span><span>Gantt</span><span>Table</span><span>Calendar</span>
+                </div>
+                <div class="mock-board">
+                  <div class="col">
+                    <div class="col-head caption-3"><span class="st" style="--c:#6B7280"></span>To do<span class="n">4</span></div>
+                    <div class="card">
+                      <span class="id caption-5">OPS-47</span>
+                      <p class="caption-4 t">Book freight for stage truss</p>
+                      <div class="meta"><span class="tag caption-5">Logistics</span><span class="av" style="--c:#3E7BE8">LA</span></div>
+                    </div>
+                    <div class="card">
+                      <span class="id caption-5">OPS-51</span>
+                      <p class="caption-4 t">Renew venue insurance</p>
+                      <div class="meta"><span class="due caption-5"><i class="ph ph-calendar-blank"></i>Dec 4</span><span class="av" style="--c:#E2489C">SR</span></div>
+                    </div>
+                  </div>
+                  <div class="col">
+                    <div class="col-head caption-3"><span class="st" style="--c:#3E7BE8"></span>In progress<span class="n">3</span></div>
+                    <div class="card">
+                      <span class="id caption-5">OPS-42</span>
+                      <p class="caption-4 t">Confirm lighting rental</p>
+                      <div class="meta"><span class="tag tag-green caption-5"><i class="ph ph-receipt"></i>PO 2318</span><span class="av" style="--c:#7B68EE">MK</span></div>
+                      <div class="bar"><span style="--w:66%"></span></div>
+                    </div>
+                    <div class="card">
+                      <span class="id caption-5">OPS-44</span>
+                      <p class="caption-4 t">Crew schedule for load in</p>
+                      <div class="meta"><span class="due caption-5"><i class="ph ph-check-square"></i>5/7</span><span class="av" style="--c:#2FA86C">JO</span></div>
+                    </div>
+                  </div>
+                  <div class="col col-hide-sm">
+                    <div class="col-head caption-3"><span class="st" style="--c:#2FA86C"></span>Done<span class="n">9</span></div>
+                    <div class="card done">
+                      <span class="id caption-5">OPS-39</span>
+                      <p class="caption-4 t">Sign catering contract</p>
+                      <div class="meta"><span class="tag caption-5">Contracts</span><span class="av" style="--c:#E8912D">DN</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mock-float" aria-hidden="true">
+            <div class="float-head">
+              <span class="float-icon"><i class="ph ph-seal-check"></i></span>
+              <div>
+                <p class="title-5">Waiting for your approval</p>
+                <p class="caption-5 muted">Step 2 of 3 · Events budget</p>
+              </div>
+            </div>
+            <div class="float-body">
+              <div class="row-between"><span class="caption-4">PO 2318 · Lighting rental</span><span class="caption-3 mono">$4,186.40</span></div>
+              <div class="budget">
+                <div class="budget-bar"><span class="spent" style="--w:48%"></span><span class="committed" style="--w:14%"></span></div>
+                <div class="row-between caption-5 muted"><span>Events 2026 line</span><span class="mono">$7,912.15 left</span></div>
+              </div>
+            </div>
+            <div class="float-actions">
+              <span class="fbtn fbtn-ghost button-xsm">Ask</span>
+              <span class="fbtn fbtn-primary button-xsm"><i class="ph ph-check"></i>Approve</span>
+            </div>
+          </div>
+          <figcaption class="sr-only">A board of tasks in an Operations space, beside an approval card for purchase order 2318 showing how much of the Events budget line is left.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 2. PROBLEM / SOLUTION -->
+    <section class="section reveal" aria-labelledby="problem-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow caption-3">The problem</p>
+          <h2 id="problem-title" class="heading-2 section-title">Your projects and your purchasing<br class="br-lg" /> live in different places</h2>
+          <p class="body-3 muted section-sub">So nobody can see what a task will cost, which order is stuck, or how much of the budget is really left.</p>
+        </div>
+        <div class="split">
+          <ul class="before" role="list">
+            <li class="before-item">
+              <i class="ph ph-kanban" aria-hidden="true"></i>
+              <div><p class="title-3">Tasks in a project tool</p><p class="body-6 muted">Due dates and owners, but no idea what anything costs.</p></div>
+            </li>
+            <li class="before-item">
+              <i class="ph ph-table" aria-hidden="true"></i>
+              <div><p class="title-3">Orders in a spreadsheet</p><p class="body-6 muted">Someone updates it on Fridays. The balance is always a week old.</p></div>
+            </li>
+            <li class="before-item">
+              <i class="ph ph-envelope-simple" aria-hidden="true"></i>
+              <div><p class="title-3">Approvals in email threads</p><p class="body-6 muted">Who signed off, and when, is buried in someone's inbox.</p></div>
+            </li>
+          </ul>
+          <div class="after">
+            <p class="eyebrow caption-3 accent">With MK Prod</p>
+            <h3 class="heading-5">One workspace where a task, its order and its budget line stay connected</h3>
+            <ul class="checks body-6" role="list">
+              <li><i class="ph ph-check-circle" aria-hidden="true"></i>Orders move from ordered to shipped to delivered beside the work they serve</li>
+              <li><i class="ph ph-check-circle" aria-hidden="true"></i>Every budget line shows allocated, spent, committed, pending and balance as orders change</li>
+              <li><i class="ph ph-check-circle" aria-hidden="true"></i>Approvals happen in the app and are kept in an audit log</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. BENEFITS -->
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow caption-3">What you get</p>
+          <h2 id="features-title" class="heading-2 section-title">Project management and procurement,<br class="br-lg" /> built as one product</h2>
+        </div>
+        <div class="bento">
+          <article class="tile tile-wide reveal">
+            <div class="tile-icon"><i class="ph ph-squares-four" aria-hidden="true"></i></div>
+            <h3 class="heading-6">See the same work eleven ways</h3>
+            <p class="body-6 muted">List, Board, Calendar, Gantt with critical path and baselines, Table with formulas and totals, Chart, Workload, Team, Activity, Mind Map and Form. Save any view, shared or private.</p>
+            <ul class="chips caption-4" role="list" aria-label="Views">
+              <li>List</li><li>Board</li><li>Calendar</li><li>Gantt</li><li>Table</li><li>Chart</li><li>Workload</li><li>Team</li><li>Activity</li><li>Mind Map</li><li>Form</li>
+            </ul>
+          </article>
+          <article class="tile reveal">
+            <div class="tile-icon"><i class="ph ph-seal-check" aria-hidden="true"></i></div>
+            <h3 class="heading-6">Approvals that follow your rules</h3>
+            <p class="body-6 muted">Approval chains per entity, an extra sign off for unbudgeted spend, and delegation while someone is out of office.</p>
+          </article>
+          <article class="tile reveal">
+            <div class="tile-icon"><i class="ph ph-wallet" aria-hidden="true"></i></div>
+            <h3 class="heading-6">Budgets that show what is left</h3>
+            <p class="body-6 muted">Split budgets into line items and watch spent, committed and pending update as each order moves.</p>
+          </article>
+          <article class="tile reveal">
+            <div class="tile-icon"><i class="ph ph-link-simple" aria-hidden="true"></i></div>
+            <h3 class="heading-6">Suppliers reply without an account</h3>
+            <p class="body-6 muted">Send an encrypted link that expires. The supplier confirms, declines or asks, and the reply lands on the order.</p>
+          </article>
+          <article class="tile reveal">
+            <div class="tile-icon"><i class="ph ph-bell-ringing" aria-hidden="true"></i></div>
+            <h3 class="heading-6">Contracts that never lapse quietly</h3>
+            <p class="body-6 muted">Reminders 60, 30, 14, 7 and 1 day before a contract ends, plus a clear active, expiring and renewing status.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. TAGLINE REVEAL -->
+    <section class="tagline" aria-label="Our promise">
+      <div class="container">
+        <p class="heading-2 tagline-text" data-words>
+          Everything your team plans, buys and signs stays readable to your team. Not to us, and not to the cloud it runs on.
+        </p>
+      </div>
+    </section>
+
+    <!-- 5. HOW IT WORKS -->
+    <section class="section" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow caption-3">How it works</p>
+          <h2 id="how-title" class="heading-2 section-title">Up and running in three steps</h2>
+        </div>
+        <ol class="steps" role="list">
+          <li class="step reveal">
+            <span class="step-n caption-3 mono">01</span>
+            <h3 class="heading-6">Create your workspace</h3>
+            <p class="body-6 muted">Sign up on the web or in the Mac app. Your password is stretched on your device and you keep a recovery code, so nobody else ever holds your keys.</p>
+          </li>
+          <li class="step reveal">
+            <span class="step-n caption-3 mono">02</span>
+            <h3 class="heading-6">Invite your team</h3>
+            <p class="body-6 muted">Every invite needs a one time code, so knowing an email address is not enough to join. Give each person a role: owner, admin, member or viewer.</p>
+          </li>
+          <li class="step reveal">
+            <span class="step-n caption-3 mono">03</span>
+            <h3 class="heading-6">Plan, buy and approve</h3>
+            <p class="body-6 muted">Set up spaces and lists, load budgets from the Excel template, define approval chains, and start moving orders from requested to completed.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 6. SECURITY / PROOF -->
+    <section class="section" id="security" aria-labelledby="security-title">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow caption-3">Security</p>
+          <h2 id="security-title" class="heading-2 section-title">Built so even we cannot read it</h2>
+          <p class="body-3 muted section-sub">Encryption happens in the Mac app or your browser. The server stores ciphertext and nothing else.</p>
+        </div>
+
+        <dl class="stats reveal">
+          <div class="stat"><dt class="caption-2 muted">Password stretching rounds, on your device</dt><dd class="heading-3 mono">600,000</dd></div>
+          <div class="stat"><dt class="caption-2 muted">Encryption for every record and file</dt><dd class="heading-3 mono">AES 256</dd></div>
+          <div class="stat"><dt class="caption-2 muted">Automated API checks, including an attacker suite</dt><dd class="heading-3 mono">~180</dd></div>
+          <div class="stat"><dt class="caption-2 muted">Security log kept per account and workspace</dt><dd class="heading-3 mono">1 year</dd></div>
+        </dl>
+
+        <div class="sec-grid">
+          <ul class="sec-list reveal" role="list">
+            <li><i class="ph ph-key" aria-hidden="true"></i><div><p class="title-3">Your password never leaves your device</p><p class="body-6 muted">Only a derived key is sent. A second key, which stays with you, unlocks your private key.</p></div></li>
+            <li><i class="ph ph-shield-check" aria-hidden="true"></i><div><p class="title-3">Authenticator app sign in</p><p class="body-6 muted">Optional for each person, and the owner can require it for the whole workspace.</p></div></li>
+            <li><i class="ph ph-arrows-clockwise" aria-hidden="true"></i><div><p class="title-3">Keys rotate when someone leaves</p><p class="body-6 muted">Removing a member creates a new workspace key, so their old copy stops working on new data.</p></div></li>
+            <li><i class="ph ph-lock-key" aria-hidden="true"></i><div><p class="title-3">Panic mode</p><p class="body-6 muted">The owner can lock the workspace instantly. Everyone else is signed out until it is unlocked.</p></div></li>
+          </ul>
+          <aside class="honest reveal" aria-labelledby="honest-title">
+            <p class="eyebrow caption-3">In plain words</p>
+            <h3 id="honest-title" class="heading-6">What the server can still see</h3>
+            <p class="body-6 muted">We would rather tell you than have you guess. The server knows:</p>
+            <ul class="dash body-6" role="list">
+              <li>Account names, email addresses and workspace names</li>
+              <li>Member roles and whether two factor sign in is on</li>
+              <li>Device labels, network address and last activity</li>
+              <li>Each record's type, size and when it changed</li>
+            </ul>
+            <p class="body-6 muted">It never sees the titles, notes, amounts, suppliers or files inside them.</p>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. DOWNLOAD -->
+    <section class="section" id="download" aria-labelledby="download-title">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow caption-3">Every device</p>
+          <h2 id="download-title" class="heading-2 section-title">One workspace, synced within seconds</h2>
+          <p class="body-3 muted section-sub">One version number across every platform. Apps tell you when an update is ready and install it for you.</p>
+        </div>
+        <ul class="platforms" role="list">
+          <li class="reveal">
+            <a class="platform" href="https://github.com/mohamdbeam-star/MKProd/releases">
+              <i class="ph ph-apple-logo" aria-hidden="true"></i>
+              <span class="title-3">Mac</span>
+              <span class="caption-5 muted">macOS 14 or later, Apple silicon and Intel</span>
+              <span class="platform-go caption-3">Download <i class="ph ph-arrow-up-right" aria-hidden="true"></i></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a class="platform" href="https://github.com/mohamdbeam-star/MKProd/releases">
+              <i class="ph ph-windows-logo" aria-hidden="true"></i>
+              <span class="title-3">Windows</span>
+              <span class="caption-5 muted">Installs per user, no admin rights</span>
+              <span class="platform-go caption-3">Download <i class="ph ph-arrow-up-right" aria-hidden="true"></i></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a class="platform" href="https://github.com/mohamdbeam-star/MKProd/releases">
+              <i class="ph ph-android-logo" aria-hidden="true"></i>
+              <span class="title-3">Android</span>
+              <span class="caption-5 muted">Android 7 or later, made for foldables</span>
+              <span class="platform-go caption-3">Download <i class="ph ph-arrow-up-right" aria-hidden="true"></i></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a class="platform" href="https://mkprod.mohamd-beam.workers.dev">
+              <i class="ph ph-device-mobile" aria-hidden="true"></i>
+              <span class="title-3">iPhone and iPad</span>
+              <span class="caption-5 muted">Open in Safari, then Add to Home Screen</span>
+              <span class="platform-go caption-3">Open <i class="ph ph-arrow-up-right" aria-hidden="true"></i></span>
+            </a>
+          </li>
+          <li class="reveal">
+            <a class="platform" href="https://mkprod.mohamd-beam.workers.dev">
+              <i class="ph ph-globe-simple" aria-hidden="true"></i>
+              <span class="title-3">Web</span>
+              <span class="caption-5 muted">Any modern browser, works offline</span>
+              <span class="platform-go caption-3">Open <i class="ph ph-arrow-up-right" aria-hidden="true"></i></span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 8. FAQ -->
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="container faq-wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow caption-3">FAQ</p>
+          <h2 id="faq-title" class="heading-2 section-title">Questions teams ask first</h2>
+        </div>
+        <div class="faq reveal">
+          <details>
+            <summary class="title-2">Who is MK Prod for?<i class="ph ph-plus" aria-hidden="true"></i></summary>
+            <p class="body-3 muted">Teams that run projects and purchasing together: operations, production, events and office teams who plan tasks, buy what those tasks need and answer for the budget.</p>
+          </details>
+          <details>
+            <summary class="title-2">Can MK Prod read my workspace?<i class="ph ph-plus" aria-hidden="true"></i></summary>
+            <p class="body-3 muted">No. Tasks, docs, chat, budgets, orders and contracts are encrypted with AES 256 GCM on your device before they sync. The server and the Cloudflare account it runs on only ever store ciphertext.</p>
+          </details>
+          <details>
+            <summary class="title-2">What can the server still see?<i class="ph ph-plus" aria-hidden="true"></i></summary>
+            <p class="body-3 muted">Account names and email addresses, workspace names, member roles, device labels, record sizes and when records change. The content of your work stays encrypted.</p>
+          </details>
+          <details>
+            <summary class="title-2">What happens if I forget my password?<i class="ph ph-plus" aria-hidden="true"></i></summary>
+            <p class="body-3 muted">Use the recovery code you saved at sign up. It resets your password and keeps access to all encrypted data. An admin can also reset your password; teammates then share the workspace key with you again.</p>
+          </details>
+          <details>
+            <summary class="title-2">Which devices does it run on?<i class="ph ph-plus" aria-hidden="true"></i></summary>
+            <p class="body-3 muted">A native Mac app for macOS 14 and later, a Windows app that installs without admin rights, an Android app for Android 7 and later including foldables, iPhone and iPad, and any modern browser.</p>
+          </details>
+          <details>
+            <summary class="title-2">Does it work offline?<i class="ph ph-plus" aria-hidden="true"></i></summary>
+            <p class="body-3 muted">Yes. The Mac app keeps a full local copy and the website keeps an encrypted offline cache. Changes sync when you reconnect, and simultaneous edits merge field by field.</p>
+          </details>
+          <details>
+            <summary class="title-2">How do suppliers respond to an order?<i class="ph ph-plus" aria-hidden="true"></i></summary>
+            <p class="body-3 muted">Share an order as a supplier link. The supplier opens it without an account and can confirm, decline or ask a question. Links are encrypted, expire after 7 to 90 days and can be revoked.</p>
+          </details>
+          <details>
+            <summary class="title-2">Can I bring my data in and take it out?<i class="ph ph-plus" aria-hidden="true"></i></summary>
+            <p class="body-3 muted">Yes. Import tasks from CSV and budgets, catalog items and contracts from an Excel template. Export to CSV, Excel or a full JSON backup whenever you like.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. RISK REVERSAL + FINAL CTA -->
+    <section class="section final" aria-labelledby="final-title">
+      <div class="container">
+        <div class="final-card reveal">
+          <img src="/favicon.svg" alt="" width="64" height="64" class="final-logo" />
+          <h2 id="final-title" class="heading-3 final-title">Plan the work. Approve the spend.<br class="br-lg" /> Keep both private.</h2>
+          <p class="body-3 muted final-sub">Your data stays yours. Export it to JSON, CSV or Excel at any time, and delete your account or workspace whenever you choose.</p>
+          <a class="btn btn-primary btn-lg button-md" href="https://mkprod.mohamd-beam.workers.dev">
+            Create your workspace
+            <i class="ph ph-arrow-right" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <a class="nav-brand title-3" href="/"><img src="/favicon.svg" alt="" width="24" height="24" /><span>MK Prod</span></a>
+        <p class="caption-5 muted">Tasks, budgets, orders and contracts in one encrypted workspace. Version 1.5.0.</p>
+      </div>
+      <nav class="footer-links caption-2" aria-label="Footer">
+        <a href="#features">Features</a>
+        <a href="#security">Security</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/mohamdbeam-star/MKProd/releases">Release notes</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
