@@ -4,19 +4,19 @@ A static, dependency free marketing page for MK Prod. Ready for Cloudflare Pages
 
 ## Deploy
 
-**Dashboard upload:** Cloudflare dashboard, Workers & Pages, Create, Pages, *Upload assets*. Name the project `mkprod-landing` and drop this `landing` folder in.
+**Dashboard upload:** Cloudflare dashboard, Workers & Pages, Create, Pages, *Upload assets*. Name the project `mkprod` and drop this `landing` folder in.
 
 **CLI:**
 
 ```bash
-npx wrangler pages deploy landing --project-name mkprod-landing
+npx wrangler pages deploy landing --project-name mkprod
 ```
 
 Cloudflare Pages picks up `_headers` (security headers, font caching) and serves `404.html` for unknown paths. `/privacy` and `/terms` resolve to their `.html` files automatically.
 
 ## If you use a different domain
 
-The canonical URL, `og:image`, `robots.txt` and `sitemap.xml` point at `https://mkprod-landing.pages.dev`. Replace that host everywhere if the project name or a custom domain differs.
+The canonical URL, `og:image`, `robots.txt` and `sitemap.xml` point at `https://mkprod.pages.dev`. Replace that host everywhere if the project name or a custom domain differs.
 
 ## Before going live
 
