@@ -1,0 +1,26 @@
+name: Deploy website
+
+# Deploys the website to Cloudflare Pages (project "mkprod", https://mkprod.pages.dev)
+# on every push to main that changes the site, or when run by hand from the Actions tab.
+# Needs two repository secrets: CLOUDFLARE_API_TOKEN (with "Cloudflare Pages: Edit") and CLOUDFLARE_ACCOUNT_ID.
+on:
+  push:
+    branches: [main]
+    paths: ['landing/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy landing --project-name mkprod --branch main --commit-dirty=true
