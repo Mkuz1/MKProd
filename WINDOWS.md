@@ -10,7 +10,7 @@ encryption, two-factor sign-in, approvals, supplier links, file attachments and 
 
 Microsoft Edge (already on every Windows 10/11 PC) or Google Chrome:
 
-1. Open **https://mkprod.mohamd-beam.workers.dev** and sign in.
+1. Open **https://mkprod.mk-uz02.workers.dev** and sign in.
 2. Click **⬇ Install as an app** at the bottom of the left sidebar. (If you don't see it: Edge menu
    **⋯ → Apps → Install MK Prod**, or in Chrome the install icon at the right end of the address bar.)
 3. Confirm. MK Prod opens in its own window and appears in the Start menu. Pin it to the taskbar
@@ -30,7 +30,7 @@ Nothing else to do. Updates arrive automatically the next time the app opens onl
 ## Company-managed PCs
 
 - Works on standard user accounts; nothing is written outside the user's profile.
-- Only outbound HTTPS to `mkprod.mohamd-beam.workers.dev` is needed.
+- Only outbound HTTPS to `mkprod.mk-uz02.workers.dev` is needed.
 - If Edge is locked down so that app installation is blocked by policy, the website works in a
   normal browser tab with identical features; only the separate window and Start-menu entry are
   lost.

@@ -3,7 +3,7 @@ import UIKit
 import WebKit
 
 enum AppConfig {
-    static let appURL = URL(string: "https://mkprod.mohamd-beam.workers.dev/")!
+    static let appURL = URL(string: "https://mkprod.mk-uz02.workers.dev/")!
     static var host: String { appURL.host ?? "" }
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0" }
 }

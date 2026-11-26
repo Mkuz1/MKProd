@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MK Prod</string>
-    <string name="app_url">https://mkprod.mohamd-beam.workers.dev/</string>
+    <string name="app_url">https://mkprod.mk-uz02.workers.dev/</string>
     <string name="offline_title">No connection</string>
     <string name="offline_body">MK Prod needs the internet the first time it opens. Check your connection and try again.</string>
     <string name="retry">Try again</string>

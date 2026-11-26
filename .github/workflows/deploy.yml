@@ -61,5 +61,5 @@ jobs:
         if: steps.creds.outputs.ready == 'true'
         run: |
           sleep 10
-          curl -fsS "https://mkprod.mohamd-beam.workers.dev/version.json?t=$(date +%s)" || true
+          curl -fsS "https://mkprod.mk-uz02.workers.dev/version.json?t=$(date +%s)" || true
           echo

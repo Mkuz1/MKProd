@@ -95,7 +95,7 @@ jobs:
           tag_name: ios-v${{ steps.v.outputs.version }}
           name: MK Prod for iPhone and iPad ${{ steps.v.outputs.version }}
           body: |
-            ${{ steps.tf.outputs.uploaded == 'true' && '**Install:** open the **TestFlight** app on the iPhone or iPad; this version arrives there within minutes of Apple finishing its check.' || '**Install today, no Apple account needed:** open https://mkprod.mohamd-beam.workers.dev in **Safari** → Share → **Add to Home Screen**. Same icon, full screen, every feature.' }}
+            ${{ steps.tf.outputs.uploaded == 'true' && '**Install:** open the **TestFlight** app on the iPhone or iPad; this version arrives there within minutes of Apple finishing its check.' || '**Install today, no Apple account needed:** open https://mkprod.mk-uz02.workers.dev in **Safari** → Share → **Add to Home Screen**. Same icon, full screen, every feature.' }}
 
             **Sideload the app itself:** `MK-Prod-${{ steps.v.outputs.version }}-ios-unsigned.ipa` installs with Sideloadly or AltStore and your Apple ID (see IOS.md). iOS 16 or newer, iPhone and iPad (Split View and Slide Over).
           files: dist/MK-Prod-*-ios-unsigned.ipa

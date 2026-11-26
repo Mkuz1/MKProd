@@ -3,7 +3,7 @@
 A team workspace for tasks, budgets, orders and contracts, in three forms that share one encrypted data set:
 
 - **Mac app** (native SwiftUI, Liquid Glass design on macOS 26, local-first; data in `~/Library/Application Support/MKProd/workspace.json`)
-- **Website** at https://mkprod.mohamd-beam.workers.dev (same glass design)
+- **Website** at https://mkprod.mk-uz02.workers.dev (same glass design)
 - **Windows app** (`.exe`, per user, no admin rights), **Android app** (`.apk`, made for foldables: book and tabletop postures) and **iPhone/iPad app**: **[WINDOWS.md](WINDOWS.md)**, **[ANDROID.md](ANDROID.md)**, **[IOS.md](IOS.md)**
 
 It's an original implementation: project management (spaces, lists, tasks, whiteboards, chat, goals, time tracking) and procurement (budgets, approvals, orders, catalog, contracts) in one encrypted workspace.
@@ -14,7 +14,7 @@ It's an original implementation: project management (spaces, lists, tasks, white
 - **Windows:** [Releases → MK Prod for Windows](https://github.com/mohamdbeam-star/MKProd/releases): per-user setup or portable `.exe`, no admin rights. See [WINDOWS.md](WINDOWS.md).
 - **Android:** [Releases → MK Prod for Android](https://github.com/mohamdbeam-star/MKProd/releases): `.apk` for Android 7+, phones, tablets and foldables. See [ANDROID.md](ANDROID.md).
 - **iPhone / iPad:** Safari → Share → **Add to Home Screen** today; the native app through TestFlight once the Apple Developer secrets are set, or sideload the `.ipa` from [Releases](https://github.com/mohamdbeam-star/MKProd/releases). See [IOS.md](IOS.md).
-- **Web:** https://mkprod.mohamd-beam.workers.dev, installable as an app from the sidebar. Signed-in people find all downloads under **Get the apps** in the sidebar (Mac: Settings → Cloud & Team).
+- **Web:** https://mkprod.mk-uz02.workers.dev, installable as an app from the sidebar. Signed-in people find all downloads under **Get the apps** in the sidebar (Mac: Settings → Cloud & Team).
 
 **One version number for everything.** The `VERSION` file at the repository root is the version of the website, the Mac, Windows and Android apps. To publish an update run `scripts/release.sh 1.2.0` (or `patch` / `minor` / `major`): it bumps the number, commits and pushes, and GitHub Actions then rebuilds the installers under the new number (`.github/workflows/mac.yml`, `windows.yml`, `android.yml`, `ios.yml`) and deploys the website (`deploy.yml`, once the Cloudflare secrets from [CLOUD_SETUP.md](CLOUD_SETUP.md) are set). The website shows its version at the bottom of the sidebar; the Windows and Android apps display the website, so they pick the update up by themselves and show an "Update now" bar when a newer build is live. The Mac app checks the same version file and, once the matching release is on GitHub, shows **Update to x.y.z** at the bottom of its sidebar; one click downloads it, replaces the app and relaunches.
 
