@@ -1,0 +1,82 @@
+feature,area,priority,original,clone,notes
+Saved views with a views bar (named private/shared/default views per location),views,must,yes,no,new synced kind "views"
+Custom task types per space (icon and colour),tasks,must,yes,no,
+Threaded comment replies,collaboration,must,yes,no,
+Comment reactions (emoji),collaboration,must,yes,no,
+Incomplete warning when closing (open subtasks / checklist items),tasks,must,yes,no,
+Dependency warning when closing a task that is waiting on open tasks,tasks,must,yes,no,
+Custom task IDs (space prefix + number),tasks,should,yes,no,
+Required custom fields (warn on close),fields,should,yes,no,
+Pinned custom fields (shown on rows and cards),fields,should,yes,no,
+Reschedule dependencies when a blocker's dates move,scheduling,should,yes,no,space setting
+Remap subtask dates when the parent's due date moves,scheduling,should,yes,no,space setting; closed subtasks skipped
+Total time in status (status history),reporting,should,yes,no,
+Work in progress limits per status on Board,views,should,yes,no,
+Tasks in multiple lists,tasks,should,yes,no,
+Activity view (feed for a location),views,should,yes,no,
+Team view (people: in progress / done / overdue / load),views,should,yes,no,
+List and Table export to CSV on the website,views,should,yes,no,Mac already exports
+Column calculations (sum / average / min / max / count),views,should,yes,no,sum exists
+Show status progress (position in workflow),tasks,could,yes,no,
+Relative dates ("in 3 days"),tasks,could,yes,no,
+Planner (time-block my tasks on a day calendar),planning,could,yes,no,
+Scheduled send for comments and chat,collaboration,could,yes,no,
+Delegate reminders to a teammate,collaboration,could,yes,no,reminders are private-key encrypted
+User groups (teams) to assign and mention,people,could,yes,no,
+Space / list / checklist templates,templates,could,yes,no,task templates exist
+Timesheet approvals,time,could,yes,no,
+Conditional logic in forms,forms,could,yes,no,
+Embed view (a web page as a view),views,could,yes,no,needs frame-src change in CSP
+Dashboards and Automations on the website,parity,should,yes,partial,Mac only today
+AI assistant / agents / AI fields / notetaker,ai,skip,yes,no,breaks end-to-end encryption; owner's decision
+Guests and limited-access guests,people,skip,yes,no,needs per-space keys; owner's decision
+Custom roles and permissions,people,skip,yes,no,needs per-space keys
+Docs and wikis,docs,skip,yes,no,removed on purpose in 1.3.0
+Private and protected docs,docs,skip,yes,no,docs removed
+Native integrations (Slack Jira Drive Zapier Make etc.),integrations,skip,yes,no,server can't read data
+Email integration,integrations,skip,yes,no,
+Webhooks and public API,integrations,skip,yes,no,
+SSO (Google Microsoft Okta SAML) and SCIM,security,skip,yes,no,
+Data residency / HIPAA,security,skip,yes,no,
+White labelling / remove branding,admin,skip,yes,no,
+Video calls (SyncUps),chat,skip,yes,no,third-party service
+Clips screen recording,collaboration,skip,yes,no,
+Giphy,collaboration,skip,yes,no,
+Office file preview,files,skip,yes,no,
+Sheets,product,skip,yes,no,separate product
+Creative studio / image and video generation,product,skip,yes,no,
+Map view,views,skip,yes,no,sends addresses to a map service
+Connected / enterprise search across other tools,search,skip,yes,no,
+Template library content,templates,skip,yes,no,their content
+Priority / live chat support,support,skip,yes,no,
+Hierarchy Workspace > Space > Folder > List,hierarchy,must,yes,yes,already in MK Prod
+Custom statuses,tasks,must,yes,yes,already
+Priorities,tasks,must,yes,yes,already
+Multiple assignees and watchers,tasks,must,yes,yes,already
+Tags,tasks,must,yes,yes,already
+Subtasks and checklists,tasks,must,yes,yes,already
+Dependencies and relationships,tasks,must,yes,yes,already
+Time estimates and sprint points,tasks,must,yes,yes,already
+Recurring tasks,tasks,must,yes,yes,already
+Custom fields incl. formulas and progress,fields,must,yes,yes,already (1.2.0)
+List Board Calendar Table views,views,must,yes,yes,already
+Gantt with critical path and baselines,views,must,yes,yes,already (1.2.0)
+Workload view,views,must,yes,yes,already
+Mind map view,views,should,yes,yes,already
+Form view,views,should,yes,yes,already
+Chart view,views,should,yes,yes,already (1.2.0)
+Whiteboards,views,should,yes,yes,already (1.3.0)
+Chat channels,chat,should,yes,yes,already
+Goals and goal folders,goals,should,yes,yes,already
+Dashboards,reporting,should,yes,yes,Mac
+Automations,workflows,should,yes,yes,Mac
+Time tracking and timesheets,time,must,yes,yes,already
+Sprints with burndown,sprints,should,yes,yes,already
+Templates (tasks),templates,should,yes,yes,already
+Home and Inbox,home,must,yes,yes,already
+Reminders,home,should,yes,yes,already
+Me mode,views,should,yes,yes,Mac
+Who's online / presence,collaboration,should,yes,yes,already
+Two-factor and required 2FA,security,must,yes,yes,already
+Audit trail and session management,security,should,yes,yes,already
+Schedules and time off,planning,should,yes,yes,already (Resources)
