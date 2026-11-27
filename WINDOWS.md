@@ -37,7 +37,7 @@ Nothing else to do. Updates arrive automatically the next time the app opens onl
 
 ## The .exe (alternative)
 
-If you prefer a classic program: **github.com/mohamdbeam-star/MKProd → Releases → MK Prod for
+If you prefer a classic program: **github.com/Mkuz1/MKProd → Releases → MK Prod for
 Windows**.
 
 - `MK-Prod-<version>-win-x64.exe`: one-click setup for the current user. No admin rights; it

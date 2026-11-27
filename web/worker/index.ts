@@ -196,17 +196,35 @@ async function route(c: Ctx, url: URL): Promise<Response> {
       // Admin reset. The admin's client picks a temporary password and sends only its auth key.
       // The member's key pair is discarded (it was locked with the old password); teammates
       // re-share the workspace key once they sign in and create a new one.
+      // An account is global, so the reset is only allowed when this workspace is the person's only
+      // one: otherwise an admin here could sign in as them and be handed keys to other workspaces.
+      // Two-factor stays on, so the temporary password alone never opens the account.
       requireAdmin(role);
-      if (targetRole === 'owner' && role !== 'owner') throw new HttpError(403, 'Not allowed');
+      if (target === user.id) throw new HttpError(400, 'Change your own password under Your security instead');
+      if (targetRole === 'owner') throw new HttpError(403, 'The owner resets their own password with their recovery code');
+      if (targetRole === 'admin' && role !== 'owner') throw new HttpError(403, 'Only the owner can reset an admin\'s password');
+      const elsewhere = await env.DB.prepare('SELECT COUNT(*) AS n FROM members WHERE user_id = ? AND workspace_id != ?').bind(target, wsId).first<{ n: number }>();
+      if ((elsewhere?.n ?? 0) > 0) {
+        throw new HttpError(409, `${targetName} also belongs to other workspaces, so their password can't be reset from here. Ask them to use their recovery code, or to reset it from a workspace they belong to alone.`);
+      }
+      await rateLimit(env, `admin-reset:${user.id}`, 10, 3600);
       const { authKey } = await body<{ authKey: string }>(req);
       const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
       await env.DB.batch([
-        env.DB.prepare('UPDATE users SET pw_scheme = 2, pw_hash = ?, pw_salt = ?, pw_iter = 0, public_key = NULL, enc_private_key = NULL, rec_hash = NULL, rec_salt = NULL, enc_private_key_rec = NULL, totp_secret = NULL, totp_enabled = 0, totp_recovery = NULL WHERE id = ?')
-          .bind(await authHash(authKey, salt), salt, target),
+        env.DB.prepare('UPDATE users SET pw_scheme = 2, pw_hash = ?, pw_salt = ?, pw_iter = 0, public_key = NULL, enc_private_key = NULL, rec_hash = NULL, rec_salt = NULL, enc_private_key_rec = NULL WHERE id = ?')
+          .bind(await authHash(checkAuthKey(authKey), salt), salt, target),
         env.DB.prepare('DELETE FROM workspace_keys WHERE user_id = ?').bind(target),
         env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(target),
       ]);
-      await logEvent(c, { wsId, userId: target, actorId: user.id, type: 'password_reset_admin', detail: `Password and two-factor reset for ${targetName}` });
+      await logEvent(c, { wsId, userId: target, actorId: user.id, type: 'password_reset_admin', detail: `Password reset for ${targetName}` });
+      const t = await env.DB.prepare('SELECT email, name FROM users WHERE id = ?').bind(target).first<{ email: string; name: string }>();
+      if (t && emailConfigured(env)) {
+        background(c, sendMails(env, 'MK Prod', [renderMail(t.email, t.name, 'Your password was reset by an admin', [
+          `${user.name || user.email} reset your MK Prod password from the workspace "${wsRow.name}" and signed out all your devices.`,
+          'They will give you a temporary password. Sign in with it and change it straight away. Your two-factor sign-in is unchanged.',
+          'If you did not expect this, contact the workspace owner.',
+        ], '')]));
+      }
       return json({ ok: true });
     }
     if (!mem[2] && m === 'DELETE') {
@@ -987,7 +1005,7 @@ async function fileDelete(c: Ctx, wsId: string, user: User, role: Role, id: stri
 
 // ---------------------------------------------------------------- app downloads
 
-const RELEASES_REPO = 'mohamdbeam-star/MKProd';
+const RELEASES_REPO = 'Mkuz1/MKProd';
 let appsCache: { at: number; body: unknown } | null = null;
 
 interface AppAsset { name: string; url: string; size?: number }

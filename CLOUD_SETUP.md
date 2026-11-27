@@ -40,10 +40,10 @@ Until the secrets exist the workflow stops with a notice and nothing is deployed
 
 ## Deploy by hand (about 2 minutes)
 
-You need Node.js and a Cloudflare account (`npx wrangler login` once). The source of truth is GitHub (`mohamdbeam-star/MKProd`); nothing needs to be kept on a particular computer.
+You need Node.js and a Cloudflare account (`npx wrangler login` once). The source of truth is GitHub (`Mkuz1/MKProd`); nothing needs to be kept on a particular computer.
 
 ```bash
-git clone https://github.com/mohamdbeam-star/MKProd.git
+git clone https://github.com/Mkuz1/MKProd.git
 cd MKProd/web
 npm install
 npm run deploy

@@ -24,4 +24,4 @@ sed -i.bak -E "s/(\"version\": *\")[0-9]+\.[0-9]+\.[0-9]+(\")/\1$new\2/" desktop
 git add VERSION desktop/package.json
 git commit -q -m "Release $new"
 git push
-echo "Released $new: watch https://github.com/mohamdbeam-star/MKProd/actions (Mac, Windows, Android, Deploy site)."
+echo "Released $new: watch https://github.com/Mkuz1/MKProd/actions (Mac, Windows, Android, Deploy site)."

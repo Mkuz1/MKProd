@@ -8,7 +8,7 @@ import AppKit
 @Observable
 final class Updater {
     static let shared = Updater()
-    static let repo = "mohamdbeam-star/MKProd"
+    static let repo = "Mkuz1/MKProd"
 
     enum State: Equatable { case idle, downloading(Double), installing, failed(String) }
 

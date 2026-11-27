@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
-const REPO = 'mohamdbeam-star/MKProd';
+const REPO = 'Mkuz1/MKProd';
 
 /** One version number for every platform: the VERSION file at the repository root. */
 const VERSION = readFileSync(resolve(__dirname, '../VERSION'), 'utf8').trim();
