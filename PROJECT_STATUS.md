@@ -17,6 +17,7 @@ Team workspace for tasks, budgets, orders and contracts (project management + pr
 
 ## Recent changes
 
+- 2026-11-27: **Security fixes** from the MK Apps security review. Admin password reset is now limited: only when this workspace is the person's only one, admins can't reset other admins (owner only), nobody resets the owner, two-factor stays on, it is rate-limited and the person gets an email. Windows shell opens only `https:`/`mailto:` links and compares origins exactly. All update/download links now point at `Mkuz1/MKProd` (the Mac updater too).
 - 2026-11-26: **Moved to the main Cloudflare account** (PR #4). The app now runs at `mkprod.mk-uz02.workers.dev` and **started with no data**; the old data stays in the `mohamd-beam` Cloudflare account. Uses the Workers token (D1 + R2).
 - 2026-11-26: Landing page on main with auto-deploy (PR #2), koussa.net invite (PR #3), SEO/share previews (PR #5), recon notes and feature list (PR #1).
 - 2026-11-09: Release 1.5.0 (saved views, task types and IDs, close warnings, rescheduling, threads and reactions, Team and Activity views).
@@ -25,7 +26,9 @@ Team workspace for tasks, budgets, orders and contracts (project management + pr
 
 - R2 storage may still need enabling on the main Cloudflare account (attachments).
 - Existing users must be told the server moved and their old data is not on the new one.
-- README install links still point at `mohamdbeam-star/MKProd` releases; switch them to `Mkuz1/MKProd`.
+- Old Worker `mkprod.mohamd-beam.workers.dev` is still live with the old data and the old reset flaw; delete it (or put it behind Cloudflare Access) in the mohamd-beam Cloudflare account once the data is exported.
+- Ship a Mac release so installed copies pick up the new update URL (old ones rely on GitHub's redirect from `mohamdbeam-star/MKProd`; keep that GitHub account so nobody claims the name).
+- Later: sign release files (Ed25519) and verify them in the Mac updater before installing.
 
 ## Rules for every MK app (decided in the MK APPS project)
 

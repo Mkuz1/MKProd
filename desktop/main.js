@@ -14,6 +14,8 @@ app.setAppUserModelId('com.mkoussa.mkprod'); // Windows notifications show "MK P
 if (!app.requestSingleInstanceLock()) app.quit();
 
 let win;
+const sameOrigin = (url) => { try { return new URL(url).origin === ORIGIN; } catch { return false; } };
+const openOutside = (url) => { if (/^(https:\/\/|mailto:)/i.test(url)) shell.openExternal(url); };
 function createWindow() {
   win = new BrowserWindow({
     width: 1360, height: 860, minWidth: 900, minHeight: 600,
@@ -26,8 +28,9 @@ function createWindow() {
   win.loadURL(APP_URL);
 
   // Links to other sites (supplier pages, SharePoint…) open in the default browser.
-  win.webContents.setWindowOpenHandler(({ url }) => { if (!url.startsWith(ORIGIN)) shell.openExternal(url); return { action: 'deny' }; });
-  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith(ORIGIN)) { e.preventDefault(); shell.openExternal(url); } });
+  // Only web and mail links leave the app: file:, smb: or app-scheme links in shared content are ignored.
+  win.webContents.setWindowOpenHandler(({ url }) => { if (!sameOrigin(url)) openOutside(url); return { action: 'deny' }; });
+  win.webContents.on('will-navigate', (e, url) => { if (!sameOrigin(url)) { e.preventDefault(); openOutside(url); } });
   win.on('closed', () => { win = null; });
 }
 
@@ -35,7 +38,7 @@ app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(
 
 app.whenReady().then(() => {
   // Only the app's own origin may use notifications; everything else is refused.
-  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => cb(permission === 'notifications' && wc.getURL().startsWith(ORIGIN)));
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => cb(permission === 'notifications' && sameOrigin(wc.getURL())));
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'MK Prod', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, { type: 'separator' }, { label: 'Sign-in & team settings', click: () => win?.loadURL(APP_URL + '#/team') }, { type: 'separator' }, { role: 'quit' }] },
     { role: 'editMenu' },

@@ -6,7 +6,7 @@ nothing to keep in step: the `.exe` always shows the current deployment.
 ## Get the .exe
 
 GitHub builds it automatically on Windows machines whenever this folder changes:
-**github.com/mohamdbeam-star/MKProd → Releases → "MK Prod for Windows"**.
+**github.com/Mkuz1/MKProd → Releases → "MK Prod for Windows"**.
 
 - `MK-Prod-<version>-win-x64.exe`: one-click setup for the current user (no admin rights),
   Start-menu and desktop shortcuts.

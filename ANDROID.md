@@ -5,7 +5,7 @@ Mac/Windows apps and is always current. Android 7.0 and newer: phones, tablets a
 
 ## Install
 
-**github.com/mohamdbeam-star/MKProd → Releases → "MK Prod for Android"** → download
+**github.com/Mkuz1/MKProd → Releases → "MK Prod for Android"** → download
 `MK-Prod-<version>-android.apk` on the phone and open it.
 
 - Android asks once to allow installs from the browser or files app (**Settings → Apps → Special
